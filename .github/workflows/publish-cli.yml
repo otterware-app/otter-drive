@@ -16,6 +16,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
 
@@ -66,16 +67,17 @@ jobs:
         shell: bash
         run: |
           expected="${{ steps.version.outputs.version }}"
-          for attempt in {1..12}; do
-            published="$(npm view "otterdrive@$expected" version 2>/dev/null || true)"
+          # npm scans uploads before they become installable, which can take minutes.
+          for attempt in {1..90}; do
+            published="$(npm view "otterdrive@$expected" version --prefer-online 2>/dev/null || true)"
             if [ "$published" = "$expected" ]; then
               echo "Verified otterdrive@$expected on npm."
               exit 0
             fi
-            echo "Registry has not propagated otterdrive@$expected yet (attempt $attempt/12)."
-            sleep 5
+            echo "Waiting for npm to make otterdrive@$expected available (attempt $attempt/90)."
+            sleep 10
           done
-          echo "otterdrive@$expected was not visible on npm after 60 seconds." >&2
+          echo "otterdrive@$expected was not visible on npm after 15 minutes." >&2
           exit 1
 
       - name: Ensure GitHub release
