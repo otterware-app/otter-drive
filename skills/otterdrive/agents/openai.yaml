@@ -1,4 +1,4 @@
 interface:
-  display_name: 'OtterDrive'
+  display_name: 'Otter Drive'
   short_description: 'Manage team-scoped, versioned artifacts safely'
   default_prompt: 'Use $otterdrive to publish this static site as a team-scoped versioned artifact.'

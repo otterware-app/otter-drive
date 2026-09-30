@@ -112,7 +112,7 @@ export async function authenticate(
     headers: request.headers,
   })) as SessionShape | null
   if (!session) {
-    throw new HttpError(401, 'unauthenticated', 'Please log in to OtterDrive.')
+    throw new HttpError(401, 'unauthenticated', 'Please log in to Otter Drive.')
   }
 
   const requestedOrganization =

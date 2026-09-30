@@ -26,7 +26,7 @@ export function AuthGate({
     return (
       <main className="centered-state">
         <div className="spinner" />
-        <p>Loading OtterDrive…</p>
+        <p>Loading Otter Drive…</p>
       </main>
     )
   }

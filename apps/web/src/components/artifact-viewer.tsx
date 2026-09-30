@@ -249,7 +249,7 @@ export function ArtifactViewer({
               )}
             </DropdownMenu>
           ) : (
-            <strong>OtterDrive Document</strong>
+            <strong>Otter Drive Document</strong>
           )}
           {selected && versions.length > 1 && (
             <Badge variant="outline">v{selected.number}</Badge>
@@ -322,7 +322,7 @@ export function ArtifactViewer({
               aria-label="Copy edit prompt"
               onClick={() =>
                 void copy(
-                  `Edit my OtterDrive document at ${artifact.url}. Read the current version first and publish a new immutable version with the OtterDrive CLI.`,
+                  `Edit my Otter Drive document at ${artifact.url}. Read the current version first and publish a new immutable version with the Otter Drive CLI.`,
                   'Edit prompt copied.',
                 )
               }

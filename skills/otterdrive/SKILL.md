@@ -1,9 +1,9 @@
 ---
 name: otterdrive
-description: Manage OtterDrive artifacts with the otterdrive CLI. Use when an agent needs to authenticate with OtterDrive, select an organization, create or publish HTML, Markdown, CSV, TSV, Excel, image, or other static content, inspect or retrieve artifact files, manage immutable versions, update metadata, move artifacts between teams, open previews, or archive and restore artifacts.
+description: Manage Otter Drive artifacts with the otterdrive CLI. Use when an agent needs to authenticate with Otter Drive, select an organization, create or publish HTML, Markdown, CSV, TSV, Excel, image, or other static content, inspect or retrieve artifact files, manage immutable versions, update metadata, move artifacts between teams, open previews, or archive and restore artifacts.
 ---
 
-# OtterDrive
+# Otter Drive
 
 Use the installed `otterdrive` CLI as the only boundary for artifact operations. Do not access Cloudflare, D1, R2, deployment credentials, or storage objects directly.
 
@@ -23,7 +23,7 @@ Use the installed `otterdrive` CLI as the only boundary for artifact operations.
    otterdrive --version
    ```
 
-   The official package is `otterdrive` and its repository metadata points to `https://github.com/ckafrouni/otterware`. When developing the CLI itself inside a clean OtterDrive checkout, use `pnpm install --frozen-lockfile`, `pnpm --dir apps/cli build`, and `npm install --global ./apps/cli`. Preserve existing checkout changes and never replace them automatically.
+   The official package is `otterdrive` and its repository metadata points to `https://github.com/otterware-app/otter-drive`. When developing the CLI itself inside a clean Otter Drive checkout, use `pnpm install --frozen-lockfile`, `pnpm --dir apps/cli build`, and `npm install --global ./apps/cli`. Preserve existing checkout changes and never replace them automatically.
 
 3. Check authentication before doing work:
 
@@ -34,7 +34,7 @@ Use the installed `otterdrive` CLI as the only boundary for artifact operations.
 4. If login is required, ask the user to complete the human-controlled device flow:
 
    ```bash
-   otterdrive auth login --url https://drive.otterware.dev
+   otterdrive auth login --url https://drive.otterware.app
    ```
 
    Do not approve a device request on the user's behalf. For unattended agents, prefer a scoped organization API key supplied through `OTTERDRIVE_TOKEN`. Never print, commit, log, or place credentials in a prompt.
@@ -70,7 +70,7 @@ otterdrive --json artifacts create <output-directory> \
   --label "Initial version"
 ```
 
-The source may also be a single document. Publish `.md`, `.csv`, `.tsv`, and `.xlsx` files directly; OtterDrive provides a purpose-built browser preview for each format:
+The source may also be a single document. Publish `.md`, `.csv`, `.tsv`, and `.xlsx` files directly; Otter Drive provides a purpose-built browser preview for each format:
 
 ```bash
 otterdrive --json artifacts create ./report.xlsx \

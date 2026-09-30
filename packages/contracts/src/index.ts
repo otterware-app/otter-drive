@@ -170,4 +170,4 @@ export const deviceTokenResponseSchema = z.object({
 export type ApiSuccess<T> = { data: T }
 
 export const API_VERSION = 'v1'
-export const DEFAULT_API_URL = 'https://drive.otterware.dev'
+export const DEFAULT_API_URL = 'https://drive.otterware.app'

@@ -16,14 +16,18 @@
     "binding": "BROWSER",
   },
   "routes": [
+    { "pattern": "drive.otterware.app", "custom_domain": true },
+    { "pattern": "usercontent.otterware.app", "custom_domain": true },
+    // Keep old API clients working and redirect browser URLs.
+    { "pattern": "app.otterware.dev", "custom_domain": true },
     { "pattern": "drive.otterware.dev", "custom_domain": true },
     { "pattern": "usercontent.otterware.dev", "custom_domain": true },
   ],
   "vars": {
-    "APP_URL": "https://drive.otterware.dev",
-    "CONTENT_URL": "https://usercontent.otterware.dev",
+    "APP_URL": "https://drive.otterware.app",
+    "CONTENT_URL": "https://usercontent.otterware.app",
     "ADMIN_EMAIL": "chris.kafrouni@gmail.com",
-    "EMAIL_FROM": "OtterDrive <noreply@otterware.dev>",
+    "EMAIL_FROM": "Otter Drive <noreply@otterware.app>",
   },
   "d1_databases": [
     {

@@ -11,7 +11,7 @@ const organizations = [
   {
     id: 'organization-2',
     slug: 'otterdrive-team',
-    name: 'OtterDrive Team',
+    name: 'Otter Drive Team',
     createdAt: '2026-07-10T00:00:00.000Z',
   },
 ]
@@ -25,7 +25,7 @@ describe('organization reference resolution', () => {
       'organization-1',
     )
     expect(
-      resolveOrganizationReference(organizations, 'otterdrive team').id,
+      resolveOrganizationReference(organizations, 'otter drive team').id,
     ).toBe('organization-2')
   })
 

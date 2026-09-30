@@ -18,7 +18,7 @@ describe('bearer authentication fast path', () => {
     const prepare = vi.fn(() => ({ bind }))
     const getSession = vi.fn()
     const actor = await authenticate(
-      new Request('https://drive.otterware.dev/api/v1/me', {
+      new Request('https://drive.otterware.app/api/v1/me', {
         headers: {
           authorization: 'Bearer raw-session.signed-value',
           'x-otterdrive-organization': 'organization-1',

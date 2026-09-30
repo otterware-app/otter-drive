@@ -1,6 +1,6 @@
-# OtterDrive
+# Otter Drive
 
-OtterDrive is a private, organization-aware artifact platform for people and agents. It provides a TanStack Start web app, immutable artifact versioning on Cloudflare, and the `otterdrive` CLI.
+Otter Drive is a private, organization-aware artifact platform for people and agents. It provides a TanStack Start web app, immutable artifact versioning on Cloudflare, and the `otterdrive` CLI.
 
 ## What is included
 
@@ -11,7 +11,7 @@ OtterDrive is a private, organization-aware artifact platform for people and age
 - Private Cloudflare R2 — immutable artifact file bodies.
 - Better Auth — closed registration, optional Google login, organizations, invitations, device authorization, and hashed organization API keys.
 
-Uploaded HTML is served from `usercontent.otterware.dev`, not the authenticated application origin. Short-lived, version-scoped grants protect the private R2 objects and keep executable content away from application cookies.
+Uploaded HTML is served from `usercontent.otterware.app`, not the authenticated application origin. Short-lived, version-scoped grants protect the private R2 objects and keep executable content away from application cookies.
 
 ## Requirements
 
@@ -23,8 +23,8 @@ Uploaded HTML is served from `usercontent.otterware.dev`, not the authenticated 
 ## Local development
 
 ```bash
-git clone https://github.com/ckafrouni/otterware.git
-cd otterware
+git clone https://github.com/otterware-app/otter-drive.git
+cd otter-drive
 pnpm install
 cp apps/web/.dev.vars.example apps/web/.dev.vars
 pnpm db:migrate:local
@@ -53,8 +53,8 @@ otterdrive --version
 To build and install from a source checkout instead:
 
 ```bash
-git clone https://github.com/ckafrouni/otterware.git
-cd otterware
+git clone https://github.com/otterware-app/otter-drive.git
+cd otter-drive
 pnpm install --frozen-lockfile
 pnpm --dir apps/cli build
 npm install --global ./apps/cli
@@ -67,14 +67,14 @@ otterdrive --help
 The repository includes the `otterdrive` skill for Codex, Claude Code, OpenClaw, Hermes, and other agents supported by skills.sh. Install it with:
 
 ```bash
-npx skills@latest add ckafrouni/otterware \
+npx skills@latest add otterware-app/otter-drive \
   --skill otterdrive
 ```
 
 The installer detects available agents and lets you select the targets. To install directly for Codex without prompts:
 
 ```bash
-npx skills@latest add ckafrouni/otterware \
+npx skills@latest add otterware-app/otter-drive \
   --skill otterdrive \
   --agent codex \
   --yes
@@ -85,7 +85,7 @@ From a local clone, use `npx skills@latest add . --skill otterdrive`. The skill 
 Authenticate a human-controlled machine with the browser device flow:
 
 ```bash
-otterdrive auth login --url https://drive.otterware.dev
+otterdrive auth login --url https://drive.otterware.app
 otterdrive auth status
 otterdrive organizations list
 otterdrive organizations use <organization-id>
@@ -180,7 +180,7 @@ pnpm exec wrangler secret put RESEND_API_KEY
 ```
 
 Password reset emails are delivered through Resend. Add and verify
-`otterware.dev` in Resend, including its DKIM and SPF records, before deploying.
+`otterware.app` in Resend, including its DKIM and SPF records, before deploying.
 The sender is configured by `EMAIL_FROM` in `apps/web/wrangler.jsonc`; it must
 use the verified domain. For local reset-email testing, also set
 `RESEND_API_KEY` in `apps/web/.dev.vars`.
@@ -201,7 +201,7 @@ pnpm exec wrangler secret put GOOGLE_CLIENT_SECRET
 The Google OAuth redirect URI is:
 
 ```text
-https://drive.otterware.dev/api/auth/callback/google
+https://drive.otterware.app/api/auth/callback/google
 ```
 
 Apply schema changes to the production database before merging a migration:
@@ -215,22 +215,46 @@ this repository and builds and deploys every push to `main` (it reports as the
 `Workers Builds: otterware` check on each commit). `pnpm deploy` remains for a
 manual deploy from an authenticated checkout.
 
-Attach `drive.otterware.dev` and `usercontent.otterware.dev` as Worker custom domains. The raw-content handlers reject production requests that do not arrive on the configured content hostname.
+Attach `drive.otterware.app` and `usercontent.otterware.app` as Worker custom domains. The raw-content handlers reject production requests that do not arrive on the configured content hostname.
 
 The seeded administrator signs in normally and creates the first organization from Settings. Later users must follow an organization invitation link and authenticate as the invited identity; arbitrary public signup is rejected by the server even if a client calls the authentication endpoint directly.
 
 ## Production trust boundary
 
-Artifact agents receive only OtterDrive device tokens or scoped API keys. They must not have Cloudflare API tokens, R2 credentials, production deployment credentials, or unreviewed access to the protected deployment branch.
+Artifact agents receive only Otter Drive device tokens or scoped API keys. They must not have Cloudflare API tokens, R2 credentials, production deployment credentials, or unreviewed access to the protected deployment branch.
 
 Production deployment runs from Cloudflare Workers Builds on the protected `main` branch.
 
-## OtterDrive migration
+## Otter Drive migration
 
-The public app URL is `https://drive.otterware.dev`; the CLI package and executable are `otterdrive`, and the agent skill is `/otterdrive` (`$otterdrive` in Codex). Artifact commands and versioning behavior are unchanged.
+The repository is `otterware-app/otter-drive`. The app is hosted at
+`https://drive.otterware.app`, and raw artifact files are served from the separate
+`https://usercontent.otterware.app` origin. The CLI package and executable remain
+`otterdrive`, and the agent skill remains `/otterdrive` (`$otterdrive` in Codex).
 
-The CLI copies existing `~/.config/otterware/config.json` profiles into the new `otterdrive` config directory on first use (respecting `XDG_CONFIG_HOME`). Saved production URLs move to the new domain; custom server URLs and credentials are preserved. `OTTERDRIVE_*` variables take precedence over the supported legacy `OTTERWARE_*` variables. Existing `otw_` API keys remain valid. Uploads exclude both `.otterdrive.json` and the legacy `.otterware.json` metadata file.
+Browser links on `app.otterware.dev`, `drive.otterware.dev` and
+`usercontent.otterware.dev` redirect to their corresponding new host while
+preserving the path and query. Legacy app API requests are served by the same
+Worker without a cross-origin redirect, so existing CLI bearer tokens and API
+keys keep working. Browser users sign in again on the new domain.
 
-For rollout, register `https://drive.otterware.dev/api/auth/callback/google` in the Google OAuth client and update its consent-screen product name to OtterDrive. Deploy the Worker with the new custom domain, then publish the `otterdrive` npm package and configure its trusted publisher for this repository's release workflow. The new npm package needs its own publishing setup; the old package's configuration does not transfer. Reinstall the renamed skill and remove the old `otterware-artifacts` installation. Browser users sign in again on the new domain.
+CLI version 0.1.5 and newer recognizes saved production URLs on both old app
+hosts. Custom server URLs, credentials and selected organizations are preserved.
+Profiles in `~/.config/otterware/config.json` are still copied to the `otterdrive`
+config directory on first use, respecting `XDG_CONFIG_HOME`. `OTTERDRIVE_*`
+variables take precedence over the supported legacy `OTTERWARE_*` variables.
+Existing `otw_` API keys remain valid, and uploads exclude both `.otterdrive.json`
+and `.otterware.json` metadata files.
 
-The existing Worker name, D1 database, R2 bucket, repository URL, and private `@otterware` workspace package scope are retained to preserve deployment wiring and stored data. Raw files continue to use the cookie-isolated `usercontent.otterware.dev` origin.
+Cloudflare Workers Builds must connect to `otterware-app/otter-drive`. The npm
+trusted publisher for `otterdrive` must use organization `otterware-app`,
+repository `otter-drive` and workflow `publish-cli.yml`. Google OAuth deployments
+must register `https://drive.otterware.app/api/auth/callback/google` before the
+new domain is enabled. Password reset emails use
+`Otter Drive <noreply@otterware.app>`; verify `otterware.app` in Resend before
+deploying this sender.
+
+The existing Worker name `otterware`, D1 database `otterware`, R2 bucket
+`otterware-artifacts` and private `@otterware` workspace packages preserve the
+deployment identity and stored data. They do not need to be recreated for the
+repository or public-domain migration.

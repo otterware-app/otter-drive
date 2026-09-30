@@ -25,7 +25,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'OtterDrive',
+        title: 'Otter Drive',
       },
       {
         name: 'description',
