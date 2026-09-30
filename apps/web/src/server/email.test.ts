@@ -14,11 +14,11 @@ describe('sendPasswordResetEmail', () => {
 
     await sendPasswordResetEmail(
       {
-        EMAIL_FROM: 'OtterDrive <noreply@otterware.dev>',
+        EMAIL_FROM: 'Otter Drive <noreply@otterware.app>',
         RESEND_API_KEY: 're_test',
       },
       'chris@example.com',
-      'https://drive.otterware.dev/reset-password?token=abc&next=1',
+      'https://drive.otterware.app/reset-password?token=abc&next=1',
     )
 
     expect(fetchMock).toHaveBeenCalledOnce()
@@ -30,9 +30,9 @@ describe('sendPasswordResetEmail', () => {
     })
     const body = JSON.parse(String(init.body)) as Record<string, unknown>
     expect(body).toMatchObject({
-      from: 'OtterDrive <noreply@otterware.dev>',
+      from: 'Otter Drive <noreply@otterware.app>',
       to: ['chris@example.com'],
-      subject: 'Reset your OtterDrive password',
+      subject: 'Reset your Otter Drive password',
     })
     expect(body.text).toContain('token=abc&next=1')
     expect(body.html).toContain('token=abc&amp;next=1')
@@ -50,9 +50,9 @@ describe('sendPasswordResetEmail', () => {
 
     await expect(
       sendPasswordResetEmail(
-        { EMAIL_FROM: 'noreply@otterware.dev', RESEND_API_KEY: 're_test' },
+        { EMAIL_FROM: 'noreply@otterware.app', RESEND_API_KEY: 're_test' },
         'chris@example.com',
-        'https://drive.otterware.dev/reset-password?token=secret',
+        'https://drive.otterware.app/reset-password?token=secret',
       ),
     ).rejects.toThrow('Resend rejected the email with status 403.')
   })

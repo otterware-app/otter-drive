@@ -37,11 +37,11 @@ function signOut() {
 
 export function BrandLink() {
   return (
-    <Link to="/home" className="topbar-brand" aria-label="OtterDrive home">
+    <Link to="/home" className="topbar-brand" aria-label="Otter Drive home">
       <span className="brand-mark">
         <Box />
       </span>
-      <strong>OtterDrive</strong>
+      <strong>Otter Drive</strong>
     </Link>
   )
 }

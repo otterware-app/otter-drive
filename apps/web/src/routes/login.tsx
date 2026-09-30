@@ -19,9 +19,7 @@ export const Route = createFileRoute('/login')({
 })
 
 function safeCallback(value?: string): string {
-  return value?.startsWith('/') && !value.startsWith('//')
-    ? value
-    : '/home'
+  return value?.startsWith('/') && !value.startsWith('//') ? value : '/home'
 }
 
 interface AuthConfig {
@@ -76,7 +74,7 @@ function LoginPage() {
       <ThemeToggle className="auth-theme-toggle" />
       <Card className="auth-card">
         <div className="auth-brand">
-          <Box size={19} /> OtterDrive
+          <Box size={19} /> Otter Drive
         </div>
         <div>
           <p className="eyebrow">Private collaboration</p>

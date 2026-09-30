@@ -91,6 +91,6 @@ jobs:
           fi
           gh release create "$tag" \
             --target "$GITHUB_SHA" \
-            --title "OtterDrive CLI v$version" \
+            --title "Otter Drive CLI v$version" \
             --generate-notes \
             --latest

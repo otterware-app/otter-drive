@@ -1,4 +1,4 @@
-# OtterDrive development notes
+# Otter Drive development notes
 
 - Use pnpm workspaces; do not add Turborepo unless task volume demonstrates a need.
 - Keep all public API request/response schemas in `packages/contracts`.

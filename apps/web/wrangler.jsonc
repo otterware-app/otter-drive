@@ -27,7 +27,7 @@
     "APP_URL": "https://drive.otterware.app",
     "CONTENT_URL": "https://usercontent.otterware.app",
     "ADMIN_EMAIL": "chris.kafrouni@gmail.com",
-    "EMAIL_FROM": "OtterDrive <noreply@otterware.dev>",
+    "EMAIL_FROM": "Otter Drive <noreply@otterware.app>",
   },
   "d1_databases": [
     {

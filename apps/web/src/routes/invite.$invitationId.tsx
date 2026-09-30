@@ -30,7 +30,7 @@ function InvitePage() {
         <ThemeToggle className="auth-theme-toggle" />
         <Card className="auth-card invitation-card">
           <p className="eyebrow">Team invitation</p>
-          <h1>Joining OtterDrive</h1>
+          <h1>Joining Otter Drive</h1>
           <p>{status}</p>
         </Card>
       </main>

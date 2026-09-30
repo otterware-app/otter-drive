@@ -182,7 +182,7 @@ async function publishVersion(input: {
     method: 'POST',
     organizationId: input.organizationId,
     body: JSON.stringify({
-      label: 'Edited in OtterDrive',
+      label: 'Edited in Otter Drive',
       entryPath: input.entryPath,
       expectedCurrentVersion: input.expectedCurrentVersion,
       files: [

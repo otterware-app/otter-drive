@@ -44,7 +44,7 @@ describe('profile updates', () => {
   })
 })
 
-describe('OtterDrive configuration migration', () => {
+describe('Otter Drive configuration migration', () => {
   let root: string
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'otterdrive-config-'))
@@ -131,7 +131,7 @@ describe('OtterDrive configuration migration', () => {
   })
 
   it.each(['https://drive.otterware.dev', 'https://drive.otterware.dev/'])(
-    'uses the new domain for an existing OtterDrive profile at %s',
+    'uses the new domain for an existing Otter Drive profile at %s',
     async (apiUrl) => {
       const saved = {
         activeProfile: 'default',

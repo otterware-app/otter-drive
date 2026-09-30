@@ -35,7 +35,7 @@ export function createAuth(env: Env) {
       : {}
 
   return betterAuth({
-    appName: 'OtterDrive',
+    appName: 'Otter Drive',
     baseURL: env.APP_URL,
     basePath: '/api/auth',
     database: env.DB,

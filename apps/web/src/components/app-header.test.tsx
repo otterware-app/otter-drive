@@ -41,11 +41,11 @@ vi.mock('@/hooks/use-organizations', () => ({
   useOrganizations: () => ({
     activeOrganization: {
       id: 'org-1',
-      name: 'OtterDrive Team',
+      name: 'Otter Drive Team',
       slug: 'otterware',
     },
     organizations: [
-      { id: 'org-1', name: 'OtterDrive Team', slug: 'otterware' },
+      { id: 'org-1', name: 'Otter Drive Team', slug: 'otterware' },
       { id: 'org-2', name: 'Zentio', slug: 'zentio' },
     ],
     selectOrganization: vi.fn(),
@@ -61,9 +61,11 @@ describe('AppHeader', () => {
     const { container } = render(<AppHeader />)
     const start = container.querySelector('.app-header-start')!
 
-    expect(start.querySelector('.topbar-brand')?.textContent).toBe('OtterDrive')
+    expect(start.querySelector('.topbar-brand')?.textContent).toBe(
+      'Otter Drive',
+    )
     expect(start.querySelector('.team-switcher')?.textContent).toBe(
-      'OtterDrive Team',
+      'Otter Drive Team',
     )
     expect(start.querySelector('.app-breadcrumb strong')).toBeNull()
     expect(container.querySelector('.app-sidebar')).toBeNull()
@@ -101,7 +103,7 @@ describe('AppHeader', () => {
     fireEvent.click(container.querySelector('.team-switcher')!)
 
     const active = await screen.findByRole('menuitem', {
-      name: 'OtterDrive Team',
+      name: 'Otter Drive Team',
     })
     expect(active.getAttribute('aria-current')).toBe('true')
     expect(screen.getByRole('menuitem', { name: 'Zentio' })).toBeTruthy()

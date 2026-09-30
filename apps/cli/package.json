@@ -1,7 +1,7 @@
 {
   "name": "otterdrive",
   "version": "0.1.5",
-  "description": "The CLI for OtterDrive",
+  "description": "The CLI for Otter Drive",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/otterware-app/otter-drive.git",

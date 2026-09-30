@@ -82,7 +82,7 @@ function DevicePage() {
             {error && <p className="form-error">{error}</p>}
             <p className="security-note">
               Only approve devices or agents you recognize. They will act as
-              your OtterDrive identity.
+              your Otter Drive identity.
             </p>
             <div className="decision-actions">
               <Button

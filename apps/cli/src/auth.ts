@@ -33,7 +33,7 @@ export function registerAuthCommands(program: Command): void {
     .command('login')
     .description('Log in using a browser or an API key')
     .option('--api-key <key>', 'Use an existing agent API key')
-    .option('--url <url>', 'OtterDrive application URL')
+    .option('--url <url>', 'Otter Drive application URL')
     .option('--no-open', 'Do not open the browser automatically')
     .action(async (options: LoginOptions, command: Command) => {
       const globals = globalOptions(command)

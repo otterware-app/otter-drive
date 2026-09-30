@@ -1,4 +1,4 @@
-# OtterDrive CLI reference
+# Otter Drive CLI reference
 
 ## Global options and environment
 
@@ -84,7 +84,7 @@ otterdrive --json artifacts push product-demo ./dist \
 
 The source may be one file or a directory. A directory uses `index.html` as its default entry. A single file uses itself. Otherwise provide `--entry <relative-path>`.
 
-OtterDrive renders the following single-file formats with dedicated previews:
+Otter Drive renders the following single-file formats with dedicated previews:
 
 - Markdown: `.md`, `.markdown`
 - Delimited spreadsheets: `.csv`, `.tsv`

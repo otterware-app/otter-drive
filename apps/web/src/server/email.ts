@@ -39,9 +39,9 @@ export async function sendPasswordResetEmail(
     body: JSON.stringify({
       from: env.EMAIL_FROM,
       to: [recipient],
-      subject: 'Reset your OtterDrive password',
-      text: `Reset your OtterDrive password using this link:\n\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
-      html: `<p>Reset your OtterDrive password using the link below.</p><p><a href="${escapeHtml(resetUrl)}">Reset password</a></p><p>If you did not request this, you can ignore this email.</p>`,
+      subject: 'Reset your Otter Drive password',
+      text: `Reset your Otter Drive password using this link:\n\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
+      html: `<p>Reset your Otter Drive password using the link below.</p><p><a href="${escapeHtml(resetUrl)}">Reset password</a></p><p>If you did not request this, you can ignore this email.</p>`,
     }),
   })
 

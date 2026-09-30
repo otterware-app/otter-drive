@@ -1,4 +1,4 @@
-# OtterDrive CLI
+# Otter Drive CLI
 
 ```bash
 npm install --global otterdrive
@@ -6,7 +6,7 @@ otterdrive auth login
 otterdrive artifacts --help
 ```
 
-Publish a website directory or a single Markdown, CSV, TSV, or Excel workbook file. OtterDrive detects the entry file and the web app provides a dedicated document preview:
+Publish a website directory or a single Markdown, CSV, TSV, or Excel workbook file. Otter Drive detects the entry file and the web app provides a dedicated document preview:
 
 ```bash
 otterdrive artifacts create ./report.xlsx \

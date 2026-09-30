@@ -1,6 +1,6 @@
-# OtterDrive
+# Otter Drive
 
-OtterDrive is a private, organization-aware artifact platform for people and agents. It provides a TanStack Start web app, immutable artifact versioning on Cloudflare, and the `otterdrive` CLI.
+Otter Drive is a private, organization-aware artifact platform for people and agents. It provides a TanStack Start web app, immutable artifact versioning on Cloudflare, and the `otterdrive` CLI.
 
 ## What is included
 
@@ -180,7 +180,7 @@ pnpm exec wrangler secret put RESEND_API_KEY
 ```
 
 Password reset emails are delivered through Resend. Add and verify
-`otterware.dev` in Resend, including its DKIM and SPF records, before deploying.
+`otterware.app` in Resend, including its DKIM and SPF records, before deploying.
 The sender is configured by `EMAIL_FROM` in `apps/web/wrangler.jsonc`; it must
 use the verified domain. For local reset-email testing, also set
 `RESEND_API_KEY` in `apps/web/.dev.vars`.
@@ -221,11 +221,11 @@ The seeded administrator signs in normally and creates the first organization fr
 
 ## Production trust boundary
 
-Artifact agents receive only OtterDrive device tokens or scoped API keys. They must not have Cloudflare API tokens, R2 credentials, production deployment credentials, or unreviewed access to the protected deployment branch.
+Artifact agents receive only Otter Drive device tokens or scoped API keys. They must not have Cloudflare API tokens, R2 credentials, production deployment credentials, or unreviewed access to the protected deployment branch.
 
 Production deployment runs from Cloudflare Workers Builds on the protected `main` branch.
 
-## OtterDrive migration
+## Otter Drive migration
 
 The repository is `otterware-app/otter-drive`. The app is hosted at
 `https://drive.otterware.app`, and raw artifact files are served from the separate
@@ -250,9 +250,9 @@ Cloudflare Workers Builds must connect to `otterware-app/otter-drive`. The npm
 trusted publisher for `otterdrive` must use organization `otterware-app`,
 repository `otter-drive` and workflow `publish-cli.yml`. Google OAuth deployments
 must register `https://drive.otterware.app/api/auth/callback/google` before the
-new domain is enabled. Verify any new sender domain in Resend before changing
-`EMAIL_FROM`; the existing verified sender continues to work independently of
-the app's domain.
+new domain is enabled. Password reset emails use
+`Otter Drive <noreply@otterware.app>`; verify `otterware.app` in Resend before
+deploying this sender.
 
 The existing Worker name `otterware`, D1 database `otterware`, R2 bucket
 `otterware-artifacts` and private `@otterware` workspace packages preserve the

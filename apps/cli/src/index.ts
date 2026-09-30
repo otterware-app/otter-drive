@@ -6,7 +6,7 @@ import { registerOrganizationCommands } from './organizations'
 
 const program = new Command()
   .name('otterdrive')
-  .description('Build and collaborate with OtterDrive')
+  .description('Build and collaborate with Otter Drive')
   .enablePositionalOptions()
   .version(packageJson.version, '-v, --version', 'Show the CLI version')
   .option('--json', 'Emit machine-readable JSON')
