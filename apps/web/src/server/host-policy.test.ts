@@ -3,18 +3,18 @@ import { isAllowedHostPath, isApplicationAsset } from './host-policy'
 import type { Env } from './types'
 
 const env = {
-  APP_URL: 'https://drive.otterware.dev',
-  CONTENT_URL: 'https://usercontent.otterware.dev',
+  APP_URL: 'https://drive.otterware.app',
+  CONTENT_URL: 'https://usercontent.otterware.app',
 } as Env
 
 describe('production host isolation', () => {
   it('serves application routes only on the app host', () => {
     expect(
-      isAllowedHostPath(new Request('https://drive.otterware.dev/login'), env),
+      isAllowedHostPath(new Request('https://drive.otterware.app/login'), env),
     ).toBe(true)
     expect(
       isAllowedHostPath(
-        new Request('https://usercontent.otterware.dev/login'),
+        new Request('https://usercontent.otterware.app/login'),
         env,
       ),
     ).toBe(false)
@@ -23,25 +23,25 @@ describe('production host isolation', () => {
   it('serves raw routes only on the content host', () => {
     expect(
       isAllowedHostPath(
-        new Request('https://usercontent.otterware.dev/raw/session/grant'),
+        new Request('https://usercontent.otterware.app/raw/session/grant'),
         env,
       ),
     ).toBe(true)
     expect(
       isAllowedHostPath(
-        new Request('https://usercontent.otterware.dev/raw/thumbnail/grant'),
+        new Request('https://usercontent.otterware.app/raw/thumbnail/grant'),
         env,
       ),
     ).toBe(true)
     expect(
       isAllowedHostPath(
-        new Request('https://drive.otterware.dev/raw/session/grant'),
+        new Request('https://drive.otterware.app/raw/session/grant'),
         env,
       ),
     ).toBe(false)
     expect(
       isAllowedHostPath(
-        new Request('https://usercontent.otterware.dev/raw/not-a-route'),
+        new Request('https://usercontent.otterware.app/raw/not-a-route'),
         env,
       ),
     ).toBe(false)
@@ -96,25 +96,25 @@ describe('production host isolation', () => {
   it('serves static application assets only on the app host', () => {
     expect(
       isApplicationAsset(
-        new Request('https://drive.otterware.dev/assets/app.js'),
+        new Request('https://drive.otterware.app/assets/app.js'),
         env,
       ),
     ).toBe(true)
     expect(
       isApplicationAsset(
-        new Request('https://drive.otterware.dev/manifest.json'),
+        new Request('https://drive.otterware.app/manifest.json'),
         env,
       ),
     ).toBe(true)
     expect(
       isApplicationAsset(
-        new Request('https://drive.otterware.dev/favicon.svg'),
+        new Request('https://drive.otterware.app/favicon.svg'),
         env,
       ),
     ).toBe(true)
     expect(
       isApplicationAsset(
-        new Request('https://usercontent.otterware.dev/assets/app.js'),
+        new Request('https://usercontent.otterware.app/assets/app.js'),
         env,
       ),
     ).toBe(false)

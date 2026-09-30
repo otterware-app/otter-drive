@@ -81,7 +81,7 @@ describe('OtterDrive configuration migration', () => {
     expect(config.activeProfile).toBe('work')
     expect(config.profiles.work).toEqual({
       ...legacy.profiles.work,
-      apiUrl: 'https://drive.otterware.dev',
+      apiUrl: 'https://drive.otterware.app',
     })
     expect(config.profiles.local).toEqual(legacy.profiles.local)
     expect(configPath()).toBe(join(root, 'otterdrive', 'config.json'))
@@ -125,8 +125,40 @@ describe('OtterDrive configuration migration', () => {
     vi.stubEnv('OTTERWARE_URL', 'https://app.otterware.dev')
     vi.stubEnv('OTTERWARE_TOKEN', 'otw_existing')
     expect((await getProfile()).profile).toEqual({
-      apiUrl: 'https://drive.otterware.dev',
+      apiUrl: 'https://drive.otterware.app',
       apiKey: 'otw_existing',
     })
+  })
+
+  it.each(['https://drive.otterware.dev', 'https://drive.otterware.dev/'])(
+    'uses the new domain for an existing OtterDrive profile at %s',
+    async (apiUrl) => {
+      const saved = {
+        activeProfile: 'default',
+        profiles: {
+          default: {
+            apiUrl,
+            accessToken: 'existing-token',
+            organizationId: 'existing-org',
+          },
+        },
+      }
+      await mkdir(join(root, 'otterdrive'))
+      await writeFile(configPath(), JSON.stringify(saved))
+      expect((await getProfile()).profile).toEqual({
+        ...saved.profiles.default,
+        apiUrl: 'https://drive.otterware.app',
+      })
+      expect(JSON.parse(await readFile(configPath(), 'utf8'))).toEqual(saved)
+    },
+  )
+
+  it.each([
+    'https://drive.otterware.dev.example',
+    'https://drive.otterware.dev/custom',
+    'http://localhost:3000',
+  ])('preserves a custom server at %s', async (apiUrl) => {
+    vi.stubEnv('OTTERDRIVE_URL', apiUrl)
+    expect((await getProfile()).profile.apiUrl).toBe(apiUrl)
   })
 })

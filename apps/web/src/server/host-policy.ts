@@ -1,5 +1,28 @@
 import type { Env } from './types'
 
+export function migrateLegacyRequest(
+  request: Request,
+  env: Env,
+): Request | Response {
+  const url = new URL(request.url)
+  const legacyApp = ['app.otterware.dev', 'drive.otterware.dev'].includes(
+    url.hostname,
+  )
+  const legacyContent = url.hostname === 'usercontent.otterware.dev'
+  if (!legacyApp && !legacyContent) return request
+
+  const target = new URL(legacyApp ? env.APP_URL : env.CONTENT_URL)
+  if (url.origin === target.origin) return request
+  url.protocol = target.protocol
+  url.host = target.host
+
+  // Fetch strips bearer tokens on cross-origin redirects. Serve old API
+  // clients in this Worker with the canonical URL and their original headers.
+  if (legacyApp && url.pathname.startsWith('/api/'))
+    return new Request(url, request)
+  return Response.redirect(url.toString(), 308)
+}
+
 /**
  * Version preview URLs (wrangler versions upload / Workers Builds PR
  * previews) serve this worker as

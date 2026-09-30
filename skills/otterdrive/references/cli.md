@@ -22,7 +22,7 @@ Stored credentials live at `${XDG_CONFIG_HOME:-~/.config}/otterdrive/config.json
 ## Authentication
 
 ```bash
-otterdrive auth login --url https://drive.otterware.dev
+otterdrive auth login --url https://drive.otterware.app
 otterdrive --json auth status
 otterdrive auth logout
 otterdrive auth config-path

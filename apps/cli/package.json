@@ -1,15 +1,15 @@
 {
   "name": "otterdrive",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "The CLI for OtterDrive",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ckafrouni/otterware.git",
+    "url": "git+https://github.com/otterware-app/otter-drive.git",
     "directory": "apps/cli"
   },
-  "homepage": "https://github.com/ckafrouni/otterware#readme",
+  "homepage": "https://drive.otterware.app",
   "bugs": {
-    "url": "https://github.com/ckafrouni/otterware/issues"
+    "url": "https://github.com/otterware-app/otter-drive/issues"
   },
   "engines": {
     "node": "24.x"

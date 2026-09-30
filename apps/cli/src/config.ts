@@ -77,7 +77,9 @@ export async function readConfig(): Promise<ConfigFile> {
 }
 
 function migrateApiUrl(url: string): string {
-  return /^https:\/\/app\.otterware\.dev\/?$/.test(url) ? DEFAULT_API_URL : url
+  return /^https:\/\/(?:app|drive)\.otterware\.dev\/?$/.test(url)
+    ? DEFAULT_API_URL
+    : url
 }
 
 async function writeConfig(config: ConfigFile): Promise<void> {

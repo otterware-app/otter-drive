@@ -4,10 +4,14 @@ import {
   hostNotFound,
   isAllowedHostPath,
   isApplicationAsset,
+  migrateLegacyRequest,
 } from './server/host-policy'
 
 export default createServerEntry({
   fetch(request) {
+    const migrated = migrateLegacyRequest(request, env)
+    if (migrated instanceof Response) return migrated
+    request = migrated
     if (!isAllowedHostPath(request, env)) return hostNotFound()
     if (isApplicationAsset(request, env)) return env.ASSETS.fetch(request)
     if (import.meta.env.DEV) {
