@@ -286,6 +286,29 @@ export function UniverEditor(props: EditorProps) {
     withResolver: true,
   })
 
+  // Univer focuses its editor whenever it likes (as it starts, as it
+  // re-renders); that would take the keys from the list (J/K, Esc) and close
+  // any open menu. It only keeps the focus once you've clicked or tapped in.
+  useEffect(() => {
+    const host = container.current
+    if (!host) return
+    let engaged = false
+    const engage = () => {
+      engaged = true
+    }
+    const guard = (event: FocusEvent) => {
+      if (engaged) return
+      const target = event.target
+      if (target instanceof HTMLElement) target.blur()
+    }
+    host.addEventListener('pointerdown', engage, true)
+    host.addEventListener('focusin', guard)
+    return () => {
+      host.removeEventListener('pointerdown', engage, true)
+      host.removeEventListener('focusin', guard)
+    }
+  }, [])
+
   useEffect(() => {
     let disposed = false
     let cleanup: (() => void) | undefined
@@ -389,18 +412,6 @@ export function UniverEditor(props: EditorProps) {
         }
       }
       cleanup = () => handle.current?.dispose()
-      // Univer focuses its editor as it starts; give focus back so the
-      // list's keys (J/K, Esc) keep working until the document is clicked.
-      const giveBack = () => {
-        const active = document.activeElement
-        if (
-          active instanceof HTMLElement &&
-          container.current?.contains(active)
-        )
-          active.blur()
-      }
-      requestAnimationFrame(giveBack)
-      window.setTimeout(giveBack, 300)
     }
     void mount().catch((reason: unknown) =>
       toast.error('The editor didn’t start', {

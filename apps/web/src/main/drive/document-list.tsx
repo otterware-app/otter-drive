@@ -349,18 +349,25 @@ function EmptyList({ search, total }: { search: DriveSearch; total: number }) {
       />
     )
   }
+  // Beside the main pane (which invites the first upload), one quiet line;
+  // on a phone, the list is all there is, so it invites the upload itself.
   return (
-    <EmptyState
-      className="h-full px-6"
-      icon={FilesIcon}
-      title="No documents yet"
-      description="Drop files anywhere, or upload a file or folder."
-      actions={
-        <Button variant="accent" onClick={requestUpload}>
-          Upload
-        </Button>
-      }
-    />
+    <>
+      <p className="hidden px-6 pt-4 text-center text-sm text-muted-foreground md:block">
+        No documents yet
+      </p>
+      <EmptyState
+        className="h-full px-6 md:hidden"
+        icon={FilesIcon}
+        title="No documents yet"
+        description="Upload a file or a folder to start."
+        actions={
+          <Button variant="accent" onClick={requestUpload}>
+            Upload
+          </Button>
+        }
+      />
+    </>
   )
 }
 
