@@ -89,6 +89,14 @@ async function spreadsheetRows(
   return null
 }
 
+export function isVideo(contentType: string, entryPath: string): boolean {
+  const extension = entryPath.split('.').pop()?.toLowerCase() ?? ''
+  return (
+    contentType.trim().toLowerCase().startsWith('video/') ||
+    ['mp4', 'm4v', 'webm', 'mov', 'ogv'].includes(extension)
+  )
+}
+
 async function launchBrowser(env: Env) {
   let lastError: unknown
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -119,8 +127,9 @@ export async function generateThumbnail(
   )
     .bind(versionId, entryPath)
     .first<ThumbnailEntry>()
+  const video = entry ? isVideo(entry.content_type, entryPath) : false
   let sheetRows: unknown[][] | null = null
-  if (entry) {
+  if (entry && !video) {
     const object = await env.ARTIFACTS.get(entry.r2_key)
     if (object) {
       sheetRows = await spreadsheetRows(
@@ -139,6 +148,47 @@ export async function generateThumbnail(
       await page.setContent(spreadsheetThumbnailHtml(sheetRows), {
         waitUntil: 'load',
       })
+    } else if (video) {
+      // The browser shows a video on its own media page; pause it on a
+      // frame a little way in, filling the shot.
+      await page.goto(url, { waitUntil: 'load', timeout: 25_000 })
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            const player = document.querySelector('video')
+            if (!player) return reject(new Error('No video element'))
+            const timeout = setTimeout(
+              () => reject(new Error('The video did not load')),
+              15_000,
+            )
+            const done = () => {
+              clearTimeout(timeout)
+              resolve()
+            }
+            player.autoplay = false
+            player.muted = true
+            player.controls = false
+            player.pause()
+            document.body.style.cssText = 'margin:0;background:#000'
+            player.style.cssText =
+              'position:fixed;inset:0;width:100vw;height:100vh;object-fit:cover'
+            player.addEventListener('error', () => {
+              clearTimeout(timeout)
+              reject(new Error('The video could not be decoded'))
+            })
+            const seek = () => {
+              const duration = Number.isFinite(player.duration)
+                ? player.duration
+                : 0
+              const time = Math.min(1, duration / 10)
+              if (time <= 0 || player.currentTime === time) return done()
+              player.addEventListener('seeked', done, { once: true })
+              player.currentTime = time
+            }
+            if (player.readyState >= 2) seek()
+            else player.addEventListener('loadeddata', seek, { once: true })
+          }),
+      )
     } else {
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 25_000 })
     }

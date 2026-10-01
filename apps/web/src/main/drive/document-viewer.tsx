@@ -250,13 +250,19 @@ export function DocumentViewer({
         ) : null}
       </TitleBand>
 
-      {/* The document, clipped to the panel's rounded bottom corners and
-          inside its 1px edge. */}
-      <div className="flex min-h-0 flex-1 pr-px pb-px">
+      {/* The document, inside the panel's 1px edge and clipped to its
+          rounded corners: the right ones, and the left ones with nothing to
+          its left. */}
+      <div
+        className={cn(
+          'flex min-h-0 flex-1 pt-px pr-px pb-px',
+          roundedLeft && 'pl-px',
+        )}
+      >
         <div
           className={cn(
-            'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-br-[11px]',
-            roundedLeft && 'rounded-bl-[11px]',
+            'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-r-[calc(var(--radius-xl)-1px)]',
+            roundedLeft && 'rounded-l-[calc(var(--radius-xl)-1px)]',
           )}
         >
           {error ? (
@@ -283,6 +289,12 @@ export function DocumentViewer({
                 version={selected.number}
               />
             </Suspense>
+          ) : isVideo(preview.contentType, selected.entryPath) ? (
+            <VideoPlayer
+              key={`${slug}:${selected.number}`}
+              src={preview.url}
+              title={`${artifact.title}, version ${selected.number}`}
+            />
           ) : (
             <iframe
               key={`${slug}:${selected.number}:${preview.url}`}
@@ -296,6 +308,36 @@ export function DocumentViewer({
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * A video document. The preview URL starts a content session and redirects to
+ * the file, so it's kept from the first render: a refetched bootstrap brings
+ * a new URL, which would restart the video.
+ */
+function VideoPlayer({ src, title }: { src: string; title: string }) {
+  const [source] = useState(src)
+  return (
+    <div className="flex size-full items-center justify-center bg-black">
+      <video
+        className="size-full object-contain"
+        src={source}
+        aria-label={title}
+        controls
+        playsInline
+        preload="metadata"
+      />
+    </div>
+  )
+}
+
+function isVideo(contentType: string, entryPath: string): boolean {
+  const type = contentType.split(';')[0]?.trim().toLowerCase() ?? ''
+  const extension = entryPath.split('.').pop()?.toLowerCase() ?? ''
+  return (
+    type.startsWith('video/') ||
+    ['mp4', 'm4v', 'webm', 'mov', 'ogv'].includes(extension)
   )
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { spreadsheetThumbnailHtml } from './thumbnails'
+import { isVideo, spreadsheetThumbnailHtml } from './thumbnails'
 
 describe('spreadsheet thumbnail rendering', () => {
   it('renders a sheet grid and safely escapes cell values', () => {
@@ -12,5 +12,13 @@ describe('spreadsheet thumbnail rendering', () => {
     expect(html).toContain('<th>1</th>')
     expect(html).toContain('Otter Drive &lt;Admin&gt;')
     expect(html).not.toContain('Otter Drive <Admin>')
+  })
+})
+
+describe('video thumbnails', () => {
+  it('knows a video by its type or extension', () => {
+    expect(isVideo('video/webm', 'walkthrough.webm')).toBe(true)
+    expect(isVideo('application/octet-stream', 'demo.MOV')).toBe(true)
+    expect(isVideo('text/html', 'index.html')).toBe(false)
   })
 })

@@ -1,6 +1,6 @@
 ---
 name: otterdrive
-description: Manage Otter Drive artifacts with the otterdrive CLI. Use when an agent needs to authenticate with Otter Drive, select an organization, create or publish HTML, Markdown, CSV, TSV, Excel, image, or other static content, inspect or retrieve artifact files, manage immutable versions, update metadata, move artifacts between teams, open previews, or archive and restore artifacts.
+description: Manage Otter Drive artifacts with the otterdrive CLI. Use when an agent needs to authenticate with Otter Drive, select an organization, create or publish HTML, Markdown, CSV, TSV, Excel, image, video, or other static content, inspect or retrieve artifact files, manage immutable versions, update metadata, move artifacts between teams, open previews, or archive and restore artifacts.
 ---
 
 # Otter Drive
@@ -77,6 +77,15 @@ otterdrive --json artifacts create ./report.xlsx \
   --slug quarterly-report \
   --title "Quarterly report" \
   --label "Initial workbook"
+```
+
+Publish a video (`.mp4`, `.webm`, `.mov`) the same way, as a single file. Otter Drive plays it in its own player, files it under Videos, and makes a thumbnail from an early frame. Don't wrap a video in an HTML page just to show it; use a page only when the video is part of a larger document. Prefer `.webm` or H.264 `.mp4`, which every browser plays:
+
+```bash
+otterdrive --json artifacts create ./walkthrough.webm \
+  --slug pr-1100-walkthrough \
+  --title "PR #1100 walkthrough" \
+  --label "Initial recording"
 ```
 
 Publish a new immutable version of an existing artifact with `push`:

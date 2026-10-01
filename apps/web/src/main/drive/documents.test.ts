@@ -57,7 +57,7 @@ describe('drive URL state', () => {
 
   it('drops invalid enumerated URL state', () => {
     expect(
-      driveSearchSchema.parse({ sort: 'oldest', view: 'grid', kind: 'videos' }),
+      driveSearchSchema.parse({ sort: 'oldest', view: 'grid', kind: 'audio' }),
     ).toEqual({ sort: undefined, view: undefined, kind: undefined })
   })
 })
@@ -72,6 +72,7 @@ describe('documents', () => {
       'pages',
     )
     expect(documentKind(artifact({ entryPath: 'logo.svg' }))).toBe('images')
+    expect(documentKind(artifact({ entryPath: 'demo.MOV' }))).toBe('videos')
     expect(documentKind(artifact({ entryPath: 'bundle.zip' }))).toBe('other')
   })
 

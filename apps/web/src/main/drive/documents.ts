@@ -5,6 +5,7 @@ import {
   FileSpreadsheetIcon,
   FileTextIcon,
   FileTypeIcon,
+  FileVideoCameraIcon,
   GlobeIcon,
   PackageIcon,
   type LucideIcon,
@@ -92,6 +93,7 @@ export const DOCUMENT_KINDS = [
   'pages',
   'pdfs',
   'images',
+  'videos',
   'other',
 ] as const
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number]
@@ -109,6 +111,7 @@ export const KIND_META: Record<
   pages: { label: 'Web pages', one: 'Web page', icon: GlobeIcon },
   pdfs: { label: 'PDFs', one: 'PDF', icon: FileTypeIcon },
   images: { label: 'Images', one: 'Image', icon: FileImageIcon },
+  videos: { label: 'Videos', one: 'Video', icon: FileVideoCameraIcon },
   other: { label: 'Other files', one: 'File', icon: PackageIcon },
 }
 
@@ -128,6 +131,11 @@ const KIND_BY_EXTENSION: Record<string, DocumentKind> = {
   gif: 'images',
   webp: 'images',
   svg: 'images',
+  mp4: 'videos',
+  m4v: 'videos',
+  webm: 'videos',
+  mov: 'videos',
+  ogv: 'videos',
 }
 
 /** What a document is, from its current entry file's extension. */
