@@ -1,16 +1,21 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { Box } from 'lucide-react'
 import { authClient } from '#/lib/auth-client'
+import {
+  AuthForm,
+  AuthLink,
+  AuthMessage,
+  AuthShell,
+} from '#/main/auth/auth-shell'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 
 export const Route = createFileRoute('/forgot-password')({
   component: ForgotPasswordPage,
 })
 
-export function ForgotPasswordPage() {
+function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -18,7 +23,6 @@ export function ForgotPasswordPage() {
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     setSubmitting(true)
-
     try {
       await authClient.requestPasswordReset({
         email,
@@ -34,48 +38,38 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <main className="auth-page">
-      <Card className="auth-card">
-        <div className="auth-brand">
-          <Box size={19} /> Otter Drive
-        </div>
-        <div>
-          <p className="eyebrow">Account recovery</p>
-          <h1>Reset your password</h1>
-          <p>
-            Enter your account email and we’ll send you a password reset link.
-          </p>
-        </div>
-        {submitted ? (
-          <div className="auth-form">
-            <p>
-              If an account exists for that address, a reset link is on its way.
-            </p>
-            <a className="auth-link" href="/login">
-              Return to sign in
-            </a>
-          </div>
-        ) : (
-          <form className="auth-form" onSubmit={submit}>
-            <label>
-              Email
-              <Input
-                required
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-              />
-            </label>
-            <Button className="w-full" type="submit" disabled={submitting}>
-              {submitting ? 'Sending…' : 'Send reset link'}
-            </Button>
-            <a className="auth-link" href="/login">
-              Return to sign in
-            </a>
-          </form>
-        )}
-      </Card>
-    </main>
+    <AuthShell
+      title="Reset your password"
+      description="Enter your account’s email and we’ll send you a link to choose a new one."
+      footer={<AuthLink href="/login">Back to sign in</AuthLink>}
+    >
+      {submitted ? (
+        <AuthMessage tone="success">
+          If an account exists for that address, a reset link is on its way.
+        </AuthMessage>
+      ) : (
+        <AuthForm onSubmit={submit}>
+          <Field label="Email">
+            <Input
+              size="lg"
+              required
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </Field>
+          <Button
+            size="lg"
+            variant="accent"
+            className="mt-1 w-full"
+            type="submit"
+            disabled={submitting}
+          >
+            {submitting ? 'Sending…' : 'Send reset link'}
+          </Button>
+        </AuthForm>
+      )}
+    </AuthShell>
   )
 }

@@ -4,9 +4,9 @@ import {
   createRootRouteWithContext,
 } from '@tanstack/react-router'
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
-import { Toaster } from '@/components/ui/sonner'
-import { ThemeProvider } from '@/components/theme-provider'
-import { CommandPalette } from '@/components/command-palette'
+import { ErrorBoundaryView } from '@/components/ui/error-boundary-view'
+import { ToastProvider } from '@/components/ui/toast'
+import { ThemeProvider } from '#/main/theme-provider'
 
 import appCss from '../styles.css?url'
 
@@ -22,7 +22,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       },
       {
         name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
+        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
       },
       {
         title: 'Otter Drive',
@@ -33,12 +33,12 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       },
       {
         name: 'theme-color',
-        content: '#ffffff',
+        content: '#f9f9f9',
         media: '(prefers-color-scheme: light)',
       },
       {
         name: 'theme-color',
-        content: '#000000',
+        content: '#202020',
         media: '(prefers-color-scheme: dark)',
       },
     ],
@@ -68,6 +68,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     ],
   }),
   shellComponent: RootDocument,
+  errorComponent: ErrorBoundaryView,
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
@@ -80,9 +81,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         </head>
         <body>
           <ThemeProvider>
-            {children}
-            <CommandPalette />
-            <Toaster position="bottom-right" richColors closeButton />
+            <ToastProvider>{children}</ToastProvider>
           </ThemeProvider>
           <Scripts />
         </body>
