@@ -283,6 +283,12 @@ export function DocumentViewer({
                 version={selected.number}
               />
             </Suspense>
+          ) : isVideo(preview.contentType, selected.entryPath) ? (
+            <VideoPlayer
+              key={`${slug}:${selected.number}`}
+              src={preview.url}
+              title={`${artifact.title}, version ${selected.number}`}
+            />
           ) : (
             <iframe
               key={`${slug}:${selected.number}:${preview.url}`}
@@ -296,6 +302,36 @@ export function DocumentViewer({
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * A video document. The preview URL starts a content session and redirects to
+ * the file, so it's kept from the first render: a refetched bootstrap brings
+ * a new URL, which would restart the video.
+ */
+function VideoPlayer({ src, title }: { src: string; title: string }) {
+  const [source] = useState(src)
+  return (
+    <div className="flex size-full items-center justify-center bg-black">
+      <video
+        className="size-full object-contain"
+        src={source}
+        aria-label={title}
+        controls
+        playsInline
+        preload="metadata"
+      />
+    </div>
+  )
+}
+
+function isVideo(contentType: string, entryPath: string): boolean {
+  const type = contentType.split(';')[0]?.trim().toLowerCase() ?? ''
+  const extension = entryPath.split('.').pop()?.toLowerCase() ?? ''
+  return (
+    type.startsWith('video/') ||
+    ['mp4', 'm4v', 'webm', 'mov', 'ogv'].includes(extension)
   )
 }
 

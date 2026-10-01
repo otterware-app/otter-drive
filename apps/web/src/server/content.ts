@@ -23,6 +23,14 @@ interface ContentFileRow {
 
 const encoder = new TextEncoder()
 
+/** How long a grant in a preview URL lasts: long enough to open it. */
+const GRANT_SECONDS = 5 * 60
+/**
+ * How long the content cookie lasts once a preview is open. A video keeps
+ * requesting ranges while it plays and seeks, so this outlives the URL grant.
+ */
+const SESSION_SECONDS = 4 * 60 * 60
+
 function base64Url(bytes: Uint8Array): string {
   let binary = ''
   for (const byte of bytes) binary += String.fromCharCode(byte)
@@ -51,10 +59,11 @@ async function signingKey(env: Env): Promise<CryptoKey> {
 export async function signContentGrant(
   env: Env,
   input: Omit<GrantPayload, 'expiresAt' | 'nonce'>,
+  seconds = GRANT_SECONDS,
 ): Promise<string> {
   const payload: GrantPayload = {
     ...input,
-    expiresAt: Math.floor(Date.now() / 1_000) + 5 * 60,
+    expiresAt: Math.floor(Date.now() / 1_000) + seconds,
     nonce: crypto.randomUUID(),
   }
   const body = base64Url(encoder.encode(JSON.stringify(payload)))
@@ -158,6 +167,15 @@ export async function startContentSession(
 ): Promise<Response> {
   assertContentOrigin(request, env)
   const grant = await verifyContentGrant(env, token)
+  const session = await signContentGrant(
+    env,
+    {
+      artifactId: grant.artifactId,
+      versionId: grant.versionId,
+      entryPath: grant.entryPath,
+    },
+    SESSION_SECONDS,
+  )
   const destination = new URL(
     `/raw/a/${grant.artifactId}/${grant.versionId}/${grant.entryPath}`,
     env.CONTENT_URL,
@@ -170,9 +188,34 @@ export async function startContentSession(
   const secure = env.CONTENT_URL.startsWith('https://') ? '; Secure' : ''
   headers.append(
     'set-cookie',
-    `otw_content=${token}; Path=/raw/a/${grant.artifactId}/${grant.versionId}/; HttpOnly; SameSite=Lax; Max-Age=300${secure}`,
+    `otw_content=${session}; Path=/raw/a/${grant.artifactId}/${grant.versionId}/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_SECONDS}${secure}`,
   )
   return new Response(null, { status: 302, headers })
+}
+
+/**
+ * The byte range a `Range` header asks for. `null` serves the whole file:
+ * no header, one we don't understand, or several ranges at once.
+ */
+export function requestedRange(
+  header: string | null,
+  size: number,
+): { offset: number; length: number } | 'unsatisfiable' | null {
+  const match = header?.trim().match(/^bytes=(\d*)-(\d*)$/)
+  if (!match) return null
+  const [, start = '', end = ''] = match
+  if (!start && !end) return null
+  if (!start) {
+    const suffix = Number(end)
+    if (suffix === 0 || size === 0) return 'unsatisfiable'
+    const length = Math.min(suffix, size)
+    return { offset: size - length, length }
+  }
+  const offset = Number(start)
+  const last = end ? Number(end) : size - 1
+  if (offset >= size) return 'unsatisfiable'
+  if (last < offset) return null
+  return { offset, length: Math.min(last, size - 1) - offset + 1 }
 }
 
 export async function serveRawContent(
@@ -206,12 +249,27 @@ export async function serveRawContent(
     .first<ContentFileRow>()
   if (!file)
     throw new HttpError(404, 'file_not_found', 'Document file not found.')
-  const object = await env.ARTIFACTS.get(file.r2_key)
+  // Ranges let video and audio seek, and Safari won't play media without them.
+  const range = requestedRange(request.headers.get('range'), file.size)
+  if (range === 'unsatisfiable') {
+    return new Response(null, {
+      status: 416,
+      headers: {
+        'content-range': `bytes */${file.size}`,
+        'accept-ranges': 'bytes',
+      },
+    })
+  }
+  const object = await env.ARTIFACTS.get(
+    file.r2_key,
+    range ? { range } : undefined,
+  )
   if (!object)
     throw new HttpError(404, 'file_not_found', 'Document body not found.')
   const headers = new Headers({
     'content-type': file.content_type,
-    'content-length': String(file.size),
+    'content-length': String(range ? range.length : file.size),
+    'accept-ranges': 'bytes',
     'cache-control': 'private, max-age=300',
     'x-content-type-options': 'nosniff',
     'referrer-policy': 'no-referrer',
@@ -223,7 +281,12 @@ export async function serveRawContent(
       'sandbox allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals',
     )
   }
-  return new Response(object.body, { headers })
+  if (!range) return new Response(object.body, { headers })
+  headers.set(
+    'content-range',
+    `bytes ${range.offset}-${range.offset + range.length - 1}/${file.size}`,
+  )
+  return new Response(object.body, { status: 206, headers })
 }
 
 export async function serveThumbnail(
