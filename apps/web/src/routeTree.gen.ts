@@ -9,27 +9,24 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as HomeRouteImport } from './routes/home'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DeviceRouteImport } from './routes/device'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
+import { Route as AppHomeRouteImport } from './routes/_app.home'
+import { Route as AppSettingsIndexRouteImport } from './routes/_app.settings.index'
 import { Route as RawThumbnailTokenRouteImport } from './routes/raw.thumbnail.$token'
 import { Route as RawSessionTokenRouteImport } from './routes/raw.session.$token'
 import { Route as ApiV1SplatRouteImport } from './routes/api.v1.$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
-import { Route as OrganizationSlugASlugRouteImport } from './routes/$organizationSlug.a.$slug'
-import { Route as OrganizationSlugASlugVersionRouteImport } from './routes/$organizationSlug.a.$slug_.$version'
+import { Route as AppSettingsPaneRouteImport } from './routes/_app.settings.$pane'
+import { Route as AppOrganizationSlugASlugRouteImport } from './routes/_app.$organizationSlug.a.$slug'
 import { Route as RawAArtifactIdVersionIdSplatRouteImport } from './routes/raw.a.$artifactId.$versionId.$'
+import { Route as AppOrganizationSlugASlugVersionRouteImport } from './routes/_app.$organizationSlug.a.$slug_.$version'
 
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -38,11 +35,6 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HomeRoute = HomeRouteImport.update({
-  id: '/home',
-  path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -55,6 +47,10 @@ const DeviceRoute = DeviceRouteImport.update({
   path: '/device',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -64,6 +60,16 @@ const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
   id: '/invite/$invitationId',
   path: '/invite/$invitationId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppHomeRoute = AppHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => AppRoute,
 } as any)
 const RawThumbnailTokenRoute = RawThumbnailTokenRouteImport.update({
   id: '/raw/thumbnail/$token',
@@ -85,16 +91,16 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OrganizationSlugASlugRoute = OrganizationSlugASlugRouteImport.update({
-  id: '/$organizationSlug/a/$slug',
-  path: '/$organizationSlug/a/$slug',
-  getParentRoute: () => rootRouteImport,
+const AppSettingsPaneRoute = AppSettingsPaneRouteImport.update({
+  id: '/settings/$pane',
+  path: '/settings/$pane',
+  getParentRoute: () => AppRoute,
 } as any)
-const OrganizationSlugASlugVersionRoute =
-  OrganizationSlugASlugVersionRouteImport.update({
-    id: '/$organizationSlug/a/$slug_/$version',
-    path: '/$organizationSlug/a/$slug/$version',
-    getParentRoute: () => rootRouteImport,
+const AppOrganizationSlugASlugRoute =
+  AppOrganizationSlugASlugRouteImport.update({
+    id: '/$organizationSlug/a/$slug',
+    path: '/$organizationSlug/a/$slug',
+    getParentRoute: () => AppRoute,
   } as any)
 const RawAArtifactIdVersionIdSplatRoute =
   RawAArtifactIdVersionIdSplatRouteImport.update({
@@ -102,57 +108,67 @@ const RawAArtifactIdVersionIdSplatRoute =
     path: '/raw/a/$artifactId/$versionId/$',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AppOrganizationSlugASlugVersionRoute =
+  AppOrganizationSlugASlugVersionRouteImport.update({
+    id: '/$organizationSlug/a/$slug_/$version',
+    path: '/$organizationSlug/a/$slug/$version',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/device': typeof DeviceRoute
   '/forgot-password': typeof ForgotPasswordRoute
-  '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/settings': typeof SettingsRoute
+  '/home': typeof AppHomeRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
-  '/$organizationSlug/a/$slug': typeof OrganizationSlugASlugRoute
+  '/settings/$pane': typeof AppSettingsPaneRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/raw/session/$token': typeof RawSessionTokenRoute
   '/raw/thumbnail/$token': typeof RawThumbnailTokenRoute
-  '/$organizationSlug/a/$slug/$version': typeof OrganizationSlugASlugVersionRoute
+  '/settings/': typeof AppSettingsIndexRoute
+  '/$organizationSlug/a/$slug': typeof AppOrganizationSlugASlugRoute
+  '/$organizationSlug/a/$slug/$version': typeof AppOrganizationSlugASlugVersionRoute
   '/raw/a/$artifactId/$versionId/$': typeof RawAArtifactIdVersionIdSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/device': typeof DeviceRoute
   '/forgot-password': typeof ForgotPasswordRoute
-  '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/settings': typeof SettingsRoute
+  '/home': typeof AppHomeRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
-  '/$organizationSlug/a/$slug': typeof OrganizationSlugASlugRoute
+  '/settings/$pane': typeof AppSettingsPaneRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/raw/session/$token': typeof RawSessionTokenRoute
   '/raw/thumbnail/$token': typeof RawThumbnailTokenRoute
-  '/$organizationSlug/a/$slug/$version': typeof OrganizationSlugASlugVersionRoute
+  '/settings': typeof AppSettingsIndexRoute
+  '/$organizationSlug/a/$slug': typeof AppOrganizationSlugASlugRoute
+  '/$organizationSlug/a/$slug/$version': typeof AppOrganizationSlugASlugVersionRoute
   '/raw/a/$artifactId/$versionId/$': typeof RawAArtifactIdVersionIdSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
   '/device': typeof DeviceRoute
   '/forgot-password': typeof ForgotPasswordRoute
-  '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/settings': typeof SettingsRoute
+  '/_app/home': typeof AppHomeRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
-  '/$organizationSlug/a/$slug': typeof OrganizationSlugASlugRoute
+  '/_app/settings/$pane': typeof AppSettingsPaneRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/raw/session/$token': typeof RawSessionTokenRoute
   '/raw/thumbnail/$token': typeof RawThumbnailTokenRoute
-  '/$organizationSlug/a/$slug_/$version': typeof OrganizationSlugASlugVersionRoute
+  '/_app/settings/': typeof AppSettingsIndexRoute
+  '/_app/$organizationSlug/a/$slug': typeof AppOrganizationSlugASlugRoute
+  '/_app/$organizationSlug/a/$slug_/$version': typeof AppOrganizationSlugASlugVersionRoute
   '/raw/a/$artifactId/$versionId/$': typeof RawAArtifactIdVersionIdSplatRoute
 }
 export interface FileRouteTypes {
@@ -161,16 +177,17 @@ export interface FileRouteTypes {
     | '/'
     | '/device'
     | '/forgot-password'
-    | '/home'
     | '/login'
     | '/reset-password'
-    | '/settings'
+    | '/home'
     | '/invite/$invitationId'
-    | '/$organizationSlug/a/$slug'
+    | '/settings/$pane'
     | '/api/auth/$'
     | '/api/v1/$'
     | '/raw/session/$token'
     | '/raw/thumbnail/$token'
+    | '/settings/'
+    | '/$organizationSlug/a/$slug'
     | '/$organizationSlug/a/$slug/$version'
     | '/raw/a/$artifactId/$versionId/$'
   fileRoutesByTo: FileRoutesByTo
@@ -178,64 +195,57 @@ export interface FileRouteTypes {
     | '/'
     | '/device'
     | '/forgot-password'
-    | '/home'
     | '/login'
     | '/reset-password'
-    | '/settings'
+    | '/home'
     | '/invite/$invitationId'
-    | '/$organizationSlug/a/$slug'
+    | '/settings/$pane'
     | '/api/auth/$'
     | '/api/v1/$'
     | '/raw/session/$token'
     | '/raw/thumbnail/$token'
+    | '/settings'
+    | '/$organizationSlug/a/$slug'
     | '/$organizationSlug/a/$slug/$version'
     | '/raw/a/$artifactId/$versionId/$'
   id:
     | '__root__'
     | '/'
+    | '/_app'
     | '/device'
     | '/forgot-password'
-    | '/home'
     | '/login'
     | '/reset-password'
-    | '/settings'
+    | '/_app/home'
     | '/invite/$invitationId'
-    | '/$organizationSlug/a/$slug'
+    | '/_app/settings/$pane'
     | '/api/auth/$'
     | '/api/v1/$'
     | '/raw/session/$token'
     | '/raw/thumbnail/$token'
-    | '/$organizationSlug/a/$slug_/$version'
+    | '/_app/settings/'
+    | '/_app/$organizationSlug/a/$slug'
+    | '/_app/$organizationSlug/a/$slug_/$version'
     | '/raw/a/$artifactId/$versionId/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
   DeviceRoute: typeof DeviceRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
-  HomeRoute: typeof HomeRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
-  SettingsRoute: typeof SettingsRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
-  OrganizationSlugASlugRoute: typeof OrganizationSlugASlugRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiV1SplatRoute: typeof ApiV1SplatRoute
   RawSessionTokenRoute: typeof RawSessionTokenRoute
   RawThumbnailTokenRoute: typeof RawThumbnailTokenRoute
-  OrganizationSlugASlugVersionRoute: typeof OrganizationSlugASlugVersionRoute
   RawAArtifactIdVersionIdSplatRoute: typeof RawAArtifactIdVersionIdSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
@@ -248,13 +258,6 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/home': {
-      id: '/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof HomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -271,6 +274,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -284,6 +294,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/invite/$invitationId'
       preLoaderRoute: typeof InviteInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/home': {
+      id: '/_app/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof AppHomeRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/': {
+      id: '/_app/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppRoute
     }
     '/raw/thumbnail/$token': {
       id: '/raw/thumbnail/$token'
@@ -313,19 +337,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/$organizationSlug/a/$slug': {
-      id: '/$organizationSlug/a/$slug'
+    '/_app/settings/$pane': {
+      id: '/_app/settings/$pane'
+      path: '/settings/$pane'
+      fullPath: '/settings/$pane'
+      preLoaderRoute: typeof AppSettingsPaneRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/$organizationSlug/a/$slug': {
+      id: '/_app/$organizationSlug/a/$slug'
       path: '/$organizationSlug/a/$slug'
       fullPath: '/$organizationSlug/a/$slug'
-      preLoaderRoute: typeof OrganizationSlugASlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/$organizationSlug/a/$slug_/$version': {
-      id: '/$organizationSlug/a/$slug_/$version'
-      path: '/$organizationSlug/a/$slug/$version'
-      fullPath: '/$organizationSlug/a/$slug/$version'
-      preLoaderRoute: typeof OrganizationSlugASlugVersionRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppOrganizationSlugASlugRouteImport
+      parentRoute: typeof AppRoute
     }
     '/raw/a/$artifactId/$versionId/$': {
       id: '/raw/a/$artifactId/$versionId/$'
@@ -334,24 +358,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RawAArtifactIdVersionIdSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/$organizationSlug/a/$slug_/$version': {
+      id: '/_app/$organizationSlug/a/$slug_/$version'
+      path: '/$organizationSlug/a/$slug/$version'
+      fullPath: '/$organizationSlug/a/$slug/$version'
+      preLoaderRoute: typeof AppOrganizationSlugASlugVersionRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppHomeRoute: typeof AppHomeRoute
+  AppSettingsPaneRoute: typeof AppSettingsPaneRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+  AppOrganizationSlugASlugRoute: typeof AppOrganizationSlugASlugRoute
+  AppOrganizationSlugASlugVersionRoute: typeof AppOrganizationSlugASlugVersionRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppHomeRoute: AppHomeRoute,
+  AppSettingsPaneRoute: AppSettingsPaneRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
+  AppOrganizationSlugASlugRoute: AppOrganizationSlugASlugRoute,
+  AppOrganizationSlugASlugVersionRoute: AppOrganizationSlugASlugVersionRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
   DeviceRoute: DeviceRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
-  HomeRoute: HomeRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
-  SettingsRoute: SettingsRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
-  OrganizationSlugASlugRoute: OrganizationSlugASlugRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiV1SplatRoute: ApiV1SplatRoute,
   RawSessionTokenRoute: RawSessionTokenRoute,
   RawThumbnailTokenRoute: RawThumbnailTokenRoute,
-  OrganizationSlugASlugVersionRoute: OrganizationSlugASlugVersionRoute,
   RawAArtifactIdVersionIdSplatRoute: RawAArtifactIdVersionIdSplatRoute,
 }
 export const routeTree = rootRouteImport

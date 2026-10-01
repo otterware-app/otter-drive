@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { CheckIcon, XIcon } from 'lucide-react'
 import { z } from 'zod'
 import { authClient } from '#/lib/auth-client'
+import { AuthMessage, AuthShell } from '#/main/auth/auth-shell'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { ThemeToggle } from '@/components/theme-toggle'
 
 const searchSchema = z.object({
   user_code: z.string().optional(),
@@ -38,7 +39,10 @@ function DevicePage() {
     authClient.device({ query: { user_code: code } }).then((result) => {
       if (result.error)
         setError(result.error.error_description ?? 'Invalid device code.')
-      else setStatus('ready')
+      else {
+        setError(null)
+        setStatus('ready')
+      }
     })
   }, [code, session.data])
 
@@ -54,56 +58,72 @@ function DevicePage() {
     else setStatus(approve ? 'approved' : 'denied')
   }
 
+  if (status === 'approved' || status === 'denied') {
+    return (
+      <AuthShell
+        title={status === 'approved' ? 'Device connected' : 'Request denied'}
+        description="You can close this tab and return to your terminal."
+      >
+        <div className="flex justify-center">
+          <span
+            className={
+              status === 'approved'
+                ? 'flex size-12 items-center justify-center rounded-full bg-success/12 text-success-foreground'
+                : 'flex size-12 items-center justify-center rounded-full bg-error-surface text-error-foreground'
+            }
+          >
+            {status === 'approved' ? (
+              <CheckIcon className="size-6" />
+            ) : (
+              <XIcon className="size-6" />
+            )}
+          </span>
+        </div>
+      </AuthShell>
+    )
+  }
+
   return (
-    <main className="auth-page">
-      <ThemeToggle className="auth-theme-toggle" />
-      <Card className="auth-card device-card">
-        <p className="eyebrow">CLI authorization</p>
-        <h1>Connect a device</h1>
-        {status === 'approved' || status === 'denied' ? (
-          <div className="decision-result">
-            <strong>
-              {status === 'approved' ? 'Device connected' : 'Request denied'}
-            </strong>
-            <p>You can close this tab and return to your terminal.</p>
-          </div>
-        ) : (
-          <>
-            <label className="device-code-label">
-              Authorization code
-              <Input
-                value={code}
-                onChange={(event) => {
-                  setCode(event.target.value.toUpperCase())
-                  setStatus('idle')
-                }}
-              />
-            </label>
-            {error && <p className="form-error">{error}</p>}
-            <p className="security-note">
-              Only approve devices or agents you recognize. They will act as
-              your Otter Drive identity.
-            </p>
-            <div className="decision-actions">
-              <Button
-                variant="outline"
-                type="button"
-                disabled={status !== 'ready'}
-                onClick={() => void decide(false)}
-              >
-                Deny
-              </Button>
-              <Button
-                type="button"
-                disabled={status !== 'ready'}
-                onClick={() => void decide(true)}
-              >
-                Approve device
-              </Button>
-            </div>
-          </>
-        )}
-      </Card>
-    </main>
+    <AuthShell
+      title="Connect a device"
+      description="The otterdrive CLI is asking to act as you. Check the code matches your terminal."
+    >
+      <div className="flex flex-col gap-4 [&_input]:bg-canvas">
+        <Field label="Code">
+          <Input
+            size="lg"
+            font="mono"
+            className="text-center tracking-[0.2em] uppercase"
+            value={code}
+            onChange={(event) => {
+              setCode(event.target.value.toUpperCase())
+              setStatus('idle')
+            }}
+          />
+        </Field>
+        {error ? <AuthMessage tone="error">{error}</AuthMessage> : null}
+        <AuthMessage>
+          Only approve devices or agents you recognize. They will act as your
+          Otter Drive identity.
+        </AuthMessage>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <Button
+            size="lg"
+            disabled={status !== 'ready'}
+            onClick={() => void decide(false)}
+          >
+            Deny
+          </Button>
+          <Button
+            size="lg"
+            variant="accent"
+            disabled={status !== 'ready'}
+            onClick={() => void decide(true)}
+          >
+            Approve
+          </Button>
+        </div>
+      </div>
+    </AuthShell>
   )
 }

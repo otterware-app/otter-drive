@@ -1,0 +1,33 @@
+import type { ErrorComponentProps } from '@tanstack/react-router'
+
+import { Button } from './button'
+
+/** Route error screen (Otter Mail's): what broke, with a way to try again. */
+function ErrorBoundaryView({ error, reset }: ErrorComponentProps) {
+  const message = error instanceof Error ? error.message : String(error)
+  return (
+    <div className="surface-grain flex h-dvh flex-col items-center justify-center gap-4 bg-sidebar-surface p-8 text-center">
+      <div className="flex max-w-md flex-col gap-1.5">
+        <h1 className="text-2xl leading-[30px] font-normal tracking-[-0.01em] text-foreground">
+          Something went wrong
+        </h1>
+        <p
+          data-selectable=""
+          className="text-sm leading-5 break-words text-muted-foreground"
+        >
+          {message}
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Reload
+        </Button>
+        <Button variant="accent" onClick={reset}>
+          Try again
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+export { ErrorBoundaryView }
