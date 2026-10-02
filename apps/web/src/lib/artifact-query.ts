@@ -1,21 +1,8 @@
 import { queryOptions } from '@tanstack/react-query'
-import { artifactResponseSchema } from '@otterware/contracts'
-import type { Artifact, ArtifactVersion } from '@otterware/contracts'
+import { artifactBootstrapResponseSchema } from '@otterware/contracts'
+import type { ArtifactBootstrapResponse } from '@otterware/contracts'
 import { api } from './api'
 import { readSessionCache, writeSessionCache } from './session-cache'
-
-interface ArtifactBootstrapResponse {
-  data: {
-    artifact: Artifact
-    versions: ArtifactVersion[]
-    preview: {
-      url: string
-      expiresAt: string
-      version: ArtifactVersion
-      contentType: string
-    }
-  }
-}
 
 export function artifactBootstrapQuery(
   organizationId: string,
@@ -23,11 +10,10 @@ export function artifactBootstrapQuery(
   version?: number,
 ) {
   const storageKey = `otterdrive:artifact:${organizationId}:${slug}:${version ?? 'current'}`
-  const stored = readSessionCache<{
-    artifact: Artifact
-    versions: ArtifactVersion[]
-    preview: ArtifactBootstrapResponse['data']['preview']
-  }>(storageKey, 4 * 60_000)
+  const stored = readSessionCache<ArtifactBootstrapResponse['data']>(
+    storageKey,
+    4 * 60_000,
+  )
   return queryOptions({
     queryKey: [
       'artifact-bootstrap',
@@ -37,16 +23,13 @@ export function artifactBootstrapQuery(
     ],
     queryFn: async () => {
       const query = version ? `?version=${version}` : ''
-      const result = await api<ArtifactBootstrapResponse>(
-        `/api/v1/artifacts/${encodeURIComponent(slug)}/bootstrap${query}`,
-        { organizationId },
+      const result = artifactBootstrapResponseSchema.parse(
+        await api<unknown>(
+          `/api/v1/artifacts/${encodeURIComponent(slug)}/bootstrap${query}`,
+          { organizationId },
+        ),
       )
-      return writeSessionCache(storageKey, {
-        artifact: artifactResponseSchema.parse({ data: result.data.artifact })
-          .data,
-        preview: result.data.preview,
-        versions: result.data.versions,
-      })
+      return writeSessionCache(storageKey, result.data)
     },
     ...(stored
       ? { initialData: stored.value, initialDataUpdatedAt: stored.savedAt }

@@ -14,7 +14,8 @@ import type {
   IWorkbookData,
   IWorksheetData,
 } from '@univerjs/presets'
-import { api } from '#/lib/api'
+import { publishDocumentVersion } from '#/lib/publish-document-version'
+import type { DocumentSheet } from './use-document-content'
 import { removeSessionCachePrefix } from '#/lib/session-cache'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
@@ -26,24 +27,21 @@ import '@univerjs/preset-docs-core/lib/index.css'
 
 type GridValue = unknown
 
-export interface UniverSheet {
-  sheet: string
-  data: GridValue[][]
-}
-
-interface EditorProps {
+type EditorProps = {
   actionsContainer?: HTMLDivElement | null | undefined
   entryPath: string
   expectedCurrentVersion: number
-  kind: 'document' | 'spreadsheet'
+  version: number
   organizationId: string
   organizationSlug: string
   onSheetChange?: ((sheet: string | undefined) => void) | undefined
+  onPreview?: (() => void) | undefined
   selectedSheet?: string | undefined
-  sheets?: UniverSheet[] | undefined
   slug: string
-  text?: string | undefined
-}
+} & (
+  | { kind: 'document'; text: string; documentFormat: 'markdown' | 'text' }
+  | { kind: 'spreadsheet'; sheets: DocumentSheet[] }
+)
 
 interface UniverHandle {
   dispose: () => void
@@ -70,7 +68,7 @@ function cellData(rows: GridValue[][]): IWorksheetData['cellData'] {
 
 export function workbookData(
   entryPath: string,
-  sheets: UniverSheet[],
+  sheets: DocumentSheet[],
 ): Partial<IWorkbookData> {
   const sheetOrder = sheets.map((_, index) => `sheet-${index}`)
   return {
@@ -166,97 +164,13 @@ async function spreadsheetBlob(
   })
 }
 
-async function sha256(blob: Blob): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer())
-  return Array.from(new Uint8Array(digest), (byte) =>
-    byte.toString(16).padStart(2, '0'),
-  ).join('')
-}
-
-async function publishVersion(input: {
-  blob: Blob
-  entryPath: string
-  expectedCurrentVersion: number
-  organizationId: string
-  slug: string
-}): Promise<number> {
-  const hash = await sha256(input.blob)
-  const session = await api<{
-    data: {
-      id: string
-      files: Array<{ uploadUrl: string; multipart: boolean; partSize?: number }>
-    }
-  }>(`/api/v1/artifacts/${encodeURIComponent(input.slug)}/uploads`, {
-    method: 'POST',
-    organizationId: input.organizationId,
-    body: JSON.stringify({
-      label: 'Edited in Otter Drive',
-      entryPath: input.entryPath,
-      expectedCurrentVersion: input.expectedCurrentVersion,
-      files: [
-        {
-          path: input.entryPath,
-          contentType: input.blob.type || 'application/octet-stream',
-          size: input.blob.size,
-          sha256: hash,
-        },
-      ],
-    }),
-  })
-  const remote = session.data.files[0]
-  if (!remote)
-    throw new Error('The upload session did not include the edited file.')
-  if (remote.multipart) {
-    if (!remote.partSize)
-      throw new Error('The upload session omitted its part size.')
-    const parts: Array<{ partNumber: number; etag: string }> = []
-    const count = Math.ceil(input.blob.size / remote.partSize)
-    for (let partNumber = 1; partNumber <= count; partNumber += 1) {
-      const start = (partNumber - 1) * remote.partSize
-      const uploadUrl = new URL(remote.uploadUrl)
-      uploadUrl.searchParams.set('part', String(partNumber))
-      const result = await api<{ data: { partNumber: number; etag: string } }>(
-        uploadUrl.toString(),
-        {
-          method: 'PUT',
-          headers: {
-            'content-type': input.blob.type || 'application/octet-stream',
-            'x-content-sha256': hash,
-          },
-          body: input.blob.slice(start, start + remote.partSize),
-        },
-      )
-      parts.push(result.data)
-    }
-    await api(`${remote.uploadUrl}/complete`, {
-      method: 'POST',
-      body: JSON.stringify({ parts }),
-    })
-  } else {
-    const upload = await fetch(remote.uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'content-type': input.blob.type || 'application/octet-stream',
-        'x-content-sha256': hash,
-      },
-      body: input.blob,
-    })
-    if (!upload.ok)
-      throw new Error(`Could not upload the edited file (${upload.status}).`)
-  }
-  const complete = await api<{ data: { version: { number: number } } }>(
-    `/api/v1/uploads/${session.data.id}/complete`,
-    { method: 'POST', organizationId: input.organizationId },
-  )
-  return complete.data.version.number
-}
-
 export function UniverEditor(props: EditorProps) {
   const container = useRef<HTMLDivElement>(null)
   const containerId = `univer-${props.slug}-${props.expectedCurrentVersion}`
   const handle = useRef<UniverHandle | null>(null)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [previewRequested, setPreviewRequested] = useState(false)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { resolvedTheme } = useTheme()
@@ -404,9 +318,10 @@ export function UniverEditor(props: EditorProps) {
           },
           exportFile: async () =>
             new Blob([plainDocument(document.getSnapshot())], {
-              type: props.entryPath.endsWith('.md')
-                ? 'text/markdown'
-                : 'text/plain',
+              type:
+                props.documentFormat === 'markdown'
+                  ? 'text/markdown'
+                  : 'text/plain',
             }),
           setDarkMode,
         }
@@ -423,15 +338,22 @@ export function UniverEditor(props: EditorProps) {
       cleanup?.()
       handle.current = null
     }
-  }, [props.entryPath, props.kind, props.sheets, props.text])
+  }, [
+    props.entryPath,
+    props.kind,
+    props.kind === 'spreadsheet' ? props.sheets : null,
+    props.kind === 'document' ? props.text : null,
+    props.kind === 'document' ? props.documentFormat : null,
+  ])
 
   async function save() {
     if (!handle.current) return
     setSaving(true)
     try {
       const blob = await handle.current.exportFile()
-      const nextVersion = await publishVersion({
+      const nextVersion = await publishDocumentVersion({
         blob,
+        baseVersion: props.version,
         entryPath: props.entryPath,
         expectedCurrentVersion: props.expectedCurrentVersion,
         organizationId: props.organizationId,
@@ -475,6 +397,19 @@ export function UniverEditor(props: EditorProps) {
       <span className="hidden text-xs text-muted-foreground lg:inline">
         {dirty ? 'Unsaved changes' : 'No changes'}
       </span>
+      {props.onPreview ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={saving}
+          onClick={() => {
+            if (dirty) setPreviewRequested(true)
+            else props.onPreview?.()
+          }}
+        >
+          Preview
+        </Button>
+      ) : null}
       <Button
         size="sm"
         variant={dirty ? 'accent' : 'outline'}
@@ -489,7 +424,11 @@ export function UniverEditor(props: EditorProps) {
 
   return (
     <>
-      {props.actionsContainer && createPortal(actions, props.actionsContainer)}
+      {props.actionsContainer ? (
+        createPortal(actions, props.actionsContainer)
+      ) : (
+        <div className="flex justify-end border-b px-4 py-2">{actions}</div>
+      )}
       <div
         id={containerId}
         ref={container}
@@ -497,16 +436,20 @@ export function UniverEditor(props: EditorProps) {
         className="size-full min-h-0 min-w-0 overflow-hidden"
       />
       <Dialog
-        open={blocker.status === 'blocked'}
+        open={previewRequested || blocker.status === 'blocked'}
         onOpenChange={(open) => {
-          if (!open && blocker.status === 'blocked') blocker.reset()
+          if (!open) {
+            setPreviewRequested(false)
+            if (blocker.status === 'blocked') blocker.reset()
+          }
         }}
         title="Leave without saving?"
         description="Your changes to this document aren’t saved as a version yet."
         confirmLabel="Discard changes"
         confirmVariant="destructive"
         onConfirm={() => {
-          if (blocker.status === 'blocked') blocker.proceed()
+          if (previewRequested) props.onPreview?.()
+          else if (blocker.status === 'blocked') blocker.proceed()
         }}
         size="small"
       />

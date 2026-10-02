@@ -1,5 +1,6 @@
 import puppeteer from '@cloudflare/puppeteer'
 import Papa from 'papaparse'
+import { documentKind } from '../lib/document-kind'
 import { signContentGrant } from './content'
 import type { Env } from './types'
 
@@ -65,16 +66,13 @@ async function spreadsheetRows(
   entryPath: string,
   bytes: ArrayBuffer,
 ): Promise<unknown[][] | null> {
-  const extension = entryPath.split('.').pop()?.toLowerCase()
-  if (
-    contentType.includes('text/csv') ||
-    ['csv', 'tsv'].includes(extension ?? '')
-  ) {
+  const kind = documentKind(contentType, entryPath)
+  if (kind === 'csv' || kind === 'tsv') {
     return Papa.parse<unknown[]>(new TextDecoder().decode(bytes), {
-      delimiter: extension === 'tsv' ? '\t' : '',
+      delimiter: kind === 'tsv' ? '\t' : '',
     }).data
   }
-  if (contentType.includes('spreadsheetml.sheet') || extension === 'xlsx') {
+  if (kind === 'workbook') {
     const XLSX = await import('@e965/xlsx')
     const workbook = XLSX.read(bytes, { type: 'array', cellDates: true })
     const firstSheet = workbook.SheetNames[0]
@@ -90,11 +88,7 @@ async function spreadsheetRows(
 }
 
 export function isVideo(contentType: string, entryPath: string): boolean {
-  const extension = entryPath.split('.').pop()?.toLowerCase() ?? ''
-  return (
-    contentType.trim().toLowerCase().startsWith('video/') ||
-    ['mp4', 'm4v', 'webm', 'mov', 'ogv'].includes(extension)
-  )
+  return documentKind(contentType, entryPath) === 'video'
 }
 
 async function launchBrowser(env: Env) {

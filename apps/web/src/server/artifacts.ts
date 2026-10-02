@@ -1,5 +1,7 @@
 import {
   artifactFilesResponseSchema,
+  artifactPreviewResponseSchema,
+  artifactBootstrapResponseSchema,
   artifactListResponseSchema,
   artifactResponseSchema,
   artifactVersionsResponseSchema,
@@ -104,6 +106,7 @@ interface UploadRow {
 type InternalUploadFile = CreateUploadInput['files'][number] & {
   r2Key: string
   multipartUploadId?: string
+  inherited?: boolean
 }
 
 const MULTIPART_PART_SIZE = 50 * 1024 * 1024
@@ -878,14 +881,20 @@ export async function previewArtifact(
     versionId: version.id,
     entryPath: version.entry_path,
   })
-  return json({
-    data: {
-      url: new URL(`/raw/session/${token}`, env.CONTENT_URL).toString(),
-      expiresAt: new Date(Date.now() + 5 * 60 * 1_000).toISOString(),
-      version: mapVersion(version),
-      contentType: entryFile.content_type,
-    },
-  })
+  return json(
+    artifactPreviewResponseSchema.parse({
+      data: {
+        url: new URL(`/raw/session/${token}`, env.CONTENT_URL).toString(),
+        expiresAt: new Date(Date.now() + 5 * 60 * 1_000).toISOString(),
+        version: mapVersion(version),
+        contentType: entryFile.content_type,
+        resourceBaseUrl: new URL(
+          `/raw/a/${artifact.id}/${version.id}/`,
+          env.CONTENT_URL,
+        ).toString(),
+      },
+    }),
+  )
 }
 
 export async function bootstrapArtifact(
@@ -926,23 +935,29 @@ export async function bootstrapArtifact(
     versionId: selected.id,
     entryPath: selected.entry_path,
   })
-  return json({
-    data: {
-      artifact: mapArtifactRecord(
-        env,
-        artifact,
-        currentVersion,
-        await organizationSlug(env, artifact.organization_id),
-      ),
-      versions,
-      preview: {
-        url: new URL(`/raw/session/${token}`, env.CONTENT_URL).toString(),
-        expiresAt: new Date(Date.now() + 5 * 60 * 1_000).toISOString(),
-        version: mapVersion(selected),
-        contentType: entryFile.content_type,
+  return json(
+    artifactBootstrapResponseSchema.parse({
+      data: {
+        artifact: mapArtifactRecord(
+          env,
+          artifact,
+          currentVersion,
+          await organizationSlug(env, artifact.organization_id),
+        ),
+        versions,
+        preview: {
+          url: new URL(`/raw/session/${token}`, env.CONTENT_URL).toString(),
+          expiresAt: new Date(Date.now() + 5 * 60 * 1_000).toISOString(),
+          version: mapVersion(selected),
+          contentType: entryFile.content_type,
+          resourceBaseUrl: new URL(
+            `/raw/a/${artifact.id}/${selected.id}/`,
+            env.CONTENT_URL,
+          ).toString(),
+        },
       },
-    },
-  })
+    }),
+  )
 }
 
 export async function regenerateThumbnail(
@@ -1036,59 +1051,124 @@ export async function createUpload(
   ) {
     throw new HttpError(400, 'duplicate_path', 'File paths must be unique.')
   }
+  let inheritedFiles: FileRow[] = []
+  if (input.baseVersion !== undefined) {
+    const base = await env.DB.prepare(
+      'SELECT id FROM artifact_version WHERE artifact_id = ? AND number = ?',
+    )
+      .bind(artifact.id, input.baseVersion)
+      .first<{ id: string }>()
+    if (!base)
+      throw new HttpError(404, 'version_not_found', 'Base version not found.')
+    const files = await env.DB.prepare(
+      'SELECT * FROM artifact_file WHERE version_id = ? ORDER BY path',
+    )
+      .bind(base.id)
+      .all<FileRow>()
+    const replaced = new Set(input.files.map((file) => file.path))
+    inheritedFiles = files.results.filter((file) => !replaced.has(file.path))
+  }
   const id = crypto.randomUUID()
   const versionId = crypto.randomUUID()
   const createdAt = new Date()
   const expiresAt = new Date(createdAt.getTime() + 2 * 60 * 60 * 1_000)
-  const internalFiles = await Promise.all(
-    input.files.map(async (file): Promise<InternalUploadFile> => {
+  const internalFiles: InternalUploadFile[] = []
+  try {
+    for (const file of input.files) {
       const r2Key = `versions/${artifact.id}/${versionId}/${file.path}`
-      if (file.size <= MULTIPART_PART_SIZE) return { ...file, r2Key }
-      const multipart = await env.ARTIFACTS.createMultipartUpload(r2Key, {
-        httpMetadata: { contentType: file.contentType },
+      const prepared: InternalUploadFile = { ...file, r2Key }
+      internalFiles.push(prepared)
+      if (file.size > MULTIPART_PART_SIZE) {
+        const multipart = await env.ARTIFACTS.createMultipartUpload(r2Key, {
+          httpMetadata: { contentType: file.contentType },
+          customMetadata: { sha256: file.sha256, uploadId: id },
+        })
+        prepared.multipartUploadId = multipart.uploadId
+      }
+    }
+    // Every version retains its own immutable object keys. Stream companion
+    // files inside the Worker instead of downloading and re-uploading them in UI.
+    for (const file of inheritedFiles) {
+      const source = await env.ARTIFACTS.get(file.r2_key)
+      if (
+        !source ||
+        source.size !== file.size ||
+        source.customMetadata?.sha256 !== file.sha256
+      )
+        throw new HttpError(
+          409,
+          'base_file_missing',
+          `Base file is missing or incomplete: ${file.path}`,
+        )
+      const r2Key = `versions/${artifact.id}/${versionId}/${file.path}`
+      internalFiles.push({ ...mapFile(file), r2Key, inherited: true })
+      await env.ARTIFACTS.put(r2Key, source.body, {
+        httpMetadata: { contentType: file.content_type },
         customMetadata: { sha256: file.sha256, uploadId: id },
       })
-      return { ...file, r2Key, multipartUploadId: multipart.uploadId }
-    }),
-  )
-  await env.DB.prepare(
-    `INSERT INTO artifact_upload
-      (id, artifact_id, organization_id, actor_type, actor_id, actor_name, version_id, version_number,
-       expected_current_version, label, entry_path, manifest_json, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  )
-    .bind(
-      id,
-      artifact.id,
-      actor.organizationId,
-      actor.type,
-      actor.id,
-      actor.name,
-      versionId,
-      artifact.version_count + 1,
-      input.expectedCurrentVersion ?? null,
-      input.label,
-      input.entryPath,
-      JSON.stringify(internalFiles),
-      createdAt.toISOString(),
-      expiresAt.toISOString(),
+    }
+    await env.DB.prepare(
+      `INSERT INTO artifact_upload
+        (id, artifact_id, organization_id, actor_type, actor_id, actor_name, version_id, version_number,
+         expected_current_version, label, entry_path, manifest_json, created_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run()
+      .bind(
+        id,
+        artifact.id,
+        actor.organizationId,
+        actor.type,
+        actor.id,
+        actor.name,
+        versionId,
+        artifact.version_count + 1,
+        input.expectedCurrentVersion ?? null,
+        input.label,
+        input.entryPath,
+        JSON.stringify(internalFiles),
+        createdAt.toISOString(),
+        expiresAt.toISOString(),
+      )
+      .run()
+  } catch (error) {
+    // Preparation failed before the caller received a session. Clean up only
+    // this new version's objects; source versions remain untouched.
+    await Promise.allSettled(
+      internalFiles
+        .filter((file) => file.multipartUploadId)
+        .map((file) =>
+          env.ARTIFACTS.resumeMultipartUpload(
+            file.r2Key,
+            file.multipartUploadId!,
+          ).abort(),
+        ),
+    )
+    await deleteArtifactStorage(
+      env,
+      internalFiles.map((file) => file.r2Key),
+      [],
+    ).catch(() => {})
+    throw error
+  }
   return json(
     uploadSessionResponseSchema.parse({
       data: {
         id,
         artifactId: artifact.id,
         expiresAt: expiresAt.toISOString(),
-        files: internalFiles.map((file) => ({
-          path: file.path,
-          uploadUrl: new URL(
-            `/api/v1/uploads/${id}/files/${encodePath(file.path)}`,
-            env.APP_URL,
-          ).toString(),
-          multipart: Boolean(file.multipartUploadId),
-          ...(file.multipartUploadId ? { partSize: MULTIPART_PART_SIZE } : {}),
-        })),
+        files: internalFiles
+          .filter((file) => !file.inherited)
+          .map((file) => ({
+            path: file.path,
+            uploadUrl: new URL(
+              `/api/v1/uploads/${id}/files/${encodePath(file.path)}`,
+              env.APP_URL,
+            ).toString(),
+            multipart: Boolean(file.multipartUploadId),
+            ...(file.multipartUploadId
+              ? { partSize: MULTIPART_PART_SIZE }
+              : {}),
+          })),
       },
     }),
     { status: 201 },
@@ -1106,7 +1186,7 @@ export async function uploadFile(
   const path = decodePath(encodedPath)
   const files = uploadManifest(upload)
   const expected = files.find((file) => file.path === path)
-  if (!expected)
+  if (!expected || expected.inherited)
     throw new HttpError(404, 'file_not_expected', 'Unexpected file path.')
   if (!request.body)
     throw new HttpError(400, 'body_required', 'File body required.')
