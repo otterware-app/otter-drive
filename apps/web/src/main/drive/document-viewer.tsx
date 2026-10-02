@@ -10,6 +10,7 @@ import {
   Maximize2Icon,
   Minimize2Icon,
 } from 'lucide-react'
+import { documentKind } from '#/lib/document-kind'
 import { artifactBootstrapQuery } from '#/lib/artifact-query'
 import { IconButton } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -79,6 +80,10 @@ export function DocumentViewer({
   const error =
     bootstrap.error instanceof Error ? bootstrap.error.message : null
   const latest = artifact?.currentVersion?.number ?? 1
+  const kind =
+    preview && selected
+      ? documentKind(preview.contentType, selected.entryPath)
+      : 'frame'
 
   const openVersion = (number: number) =>
     void navigate(
@@ -274,11 +279,11 @@ export function DocumentViewer({
             />
           ) : !artifact || !selected || !preview ? (
             <ContentLoading />
-          ) : isEditable(preview.contentType, selected.entryPath) ? (
+          ) : kind !== 'frame' && kind !== 'video' ? (
             <Suspense fallback={<ContentLoading />}>
               <DocumentPreview
                 actionsContainer={editorActions}
-                contentType={preview.contentType}
+                kind={kind}
                 entryPath={selected.entryPath}
                 expectedCurrentVersion={artifact.versionCount}
                 onSheetChange={onSheetChange}
@@ -289,7 +294,7 @@ export function DocumentViewer({
                 version={selected.number}
               />
             </Suspense>
-          ) : isVideo(preview.contentType, selected.entryPath) ? (
+          ) : kind === 'video' ? (
             <VideoPlayer
               key={`${slug}:${selected.number}`}
               src={preview.url}
@@ -329,28 +334,5 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
         preload="metadata"
       />
     </div>
-  )
-}
-
-function isVideo(contentType: string, entryPath: string): boolean {
-  const type = contentType.split(';')[0]?.trim().toLowerCase() ?? ''
-  const extension = entryPath.split('.').pop()?.toLowerCase() ?? ''
-  return (
-    type.startsWith('video/') ||
-    ['mp4', 'm4v', 'webm', 'mov', 'ogv'].includes(extension)
-  )
-}
-
-/** Markdown, text and spreadsheets open in the editor; the rest in a frame. */
-function isEditable(contentType: string, entryPath: string): boolean {
-  const type = contentType.split(';')[0]?.trim().toLowerCase()
-  const extension = entryPath.split('.').pop()?.toLowerCase()
-  return (
-    type === 'text/markdown' ||
-    type === 'text/plain' ||
-    type === 'text/csv' ||
-    type ===
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-    ['md', 'markdown', 'txt', 'csv', 'tsv', 'xlsx'].includes(extension ?? '')
   )
 }

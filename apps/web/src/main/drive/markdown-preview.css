@@ -1,0 +1,140 @@
+.document-markdown {
+  color: var(--foreground);
+  font-size: 15px;
+  line-height: 1.75;
+  overflow-wrap: break-word;
+}
+
+.document-markdown > :first-child {
+  margin-top: 0;
+}
+
+.document-markdown :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1.75em 0 0.65em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.document-markdown h1 {
+  font-size: 2em;
+  letter-spacing: -0.025em;
+}
+
+.document-markdown h2 {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.35em;
+  font-size: 1.5em;
+  letter-spacing: -0.015em;
+}
+
+.document-markdown h3 {
+  font-size: 1.2em;
+}
+
+.document-markdown :is(p, ul, ol, blockquote, pre, table, hr) {
+  margin: 0 0 1.1em;
+}
+
+.document-markdown :is(ul, ol) {
+  padding-left: 1.6em;
+}
+
+.document-markdown ul {
+  list-style: disc;
+}
+
+.document-markdown ol {
+  list-style: decimal;
+}
+
+.document-markdown li + li {
+  margin-top: 0.25em;
+}
+
+.document-markdown li > :is(ul, ol) {
+  margin: 0.25em 0 0;
+}
+
+.document-markdown .contains-task-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.document-markdown .task-list-item input {
+  margin-right: 0.5em;
+  accent-color: var(--primary);
+}
+
+.document-markdown a {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.document-markdown a:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.document-markdown blockquote {
+  border-left: 3px solid var(--border);
+  padding: 0 1em;
+  color: var(--muted-foreground);
+}
+
+.document-markdown code {
+  border-radius: 4px;
+  background: var(--muted);
+  padding: 0.15em 0.35em;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+.document-markdown pre {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--muted);
+  padding: 1em 1.2em;
+  line-height: 1.6;
+}
+
+.document-markdown pre code {
+  background: none;
+  padding: 0;
+}
+
+.document-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.925em;
+}
+
+.document-markdown :is(th, td) {
+  border: 1px solid var(--border);
+  padding: 0.5em 0.8em;
+}
+
+.document-markdown th {
+  background: var(--muted);
+  font-weight: 600;
+}
+
+.document-markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+}
+
+.document-markdown hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.document-markdown .footnotes {
+  border-top: 1px solid var(--border);
+  padding-top: 1em;
+  color: var(--muted-foreground);
+  font-size: 0.875em;
+}

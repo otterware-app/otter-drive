@@ -28,6 +28,20 @@ export const artifactVersionSchema = z.object({
 })
 export type ArtifactVersion = z.infer<typeof artifactVersionSchema>
 
+export const artifactPreviewSchema = z.object({
+  url: z.string().url(),
+  expiresAt: z.string().datetime(),
+  version: artifactVersionSchema,
+  contentType: z.string(),
+  resourceBaseUrl: z.string().url(),
+})
+export const artifactPreviewResponseSchema = z.object({
+  data: artifactPreviewSchema,
+})
+export type ArtifactPreviewResponse = z.infer<
+  typeof artifactPreviewResponseSchema
+>
+
 export const artifactSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
@@ -44,6 +58,17 @@ export const artifactSchema = z.object({
   thumbnailUrl: z.string().nullable().optional(),
 })
 export type Artifact = z.infer<typeof artifactSchema>
+
+export const artifactBootstrapResponseSchema = z.object({
+  data: z.object({
+    artifact: artifactSchema,
+    versions: z.array(artifactVersionSchema),
+    preview: artifactPreviewSchema,
+  }),
+})
+export type ArtifactBootstrapResponse = z.infer<
+  typeof artifactBootstrapResponseSchema
+>
 
 export const paginationSchema = z.object({
   nextCursor: z.string().nullable(),
@@ -100,6 +125,8 @@ export const createUploadInputSchema = z.object({
   label: z.string().min(1).max(300),
   entryPath: z.string().min(1),
   expectedCurrentVersion: z.number().int().nonnegative().optional(),
+  /** Carry forward unchanged files from this version when publishing edits. */
+  baseVersion: z.number().int().positive().optional(),
   files: z
     .array(
       artifactFileSchema.extend({
@@ -130,6 +157,13 @@ export type UploadSession = z.infer<typeof uploadSessionSchema>
 
 export const uploadSessionResponseSchema = z.object({
   data: uploadSessionSchema,
+})
+
+export const multipartUploadPartResponseSchema = z.object({
+  data: z.object({
+    partNumber: z.number().int().positive(),
+    etag: z.string().min(1),
+  }),
 })
 
 export const completeUploadResponseSchema = z.object({
