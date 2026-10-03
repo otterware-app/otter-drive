@@ -196,6 +196,23 @@ describe('personal and shared drives', () => {
     await deleteFolder(env, owner, child.id)
     await deleteFolder(env, owner, drive.id)
   })
+  it('rejects one of two concurrent moves that would form a cycle', async () => {
+    const drive = await create('Shared'),
+      a = await create('A', drive.id),
+      b = await create('B', drive.id)
+    const results = await Promise.allSettled([
+      updateFolder(request({ parentId: b.id }, 'PATCH'), env, owner, a.id),
+      updateFolder(request({ parentId: a.id }, 'PATCH'), env, owner, b.id),
+    ])
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1)
+    expect(
+      results.filter((result) => result.status === 'rejected'),
+    ).toHaveLength(1)
+    expect((await folderAccess(env, 'owner', a.id)).driveId).toBe(drive.id)
+    expect((await folderAccess(env, 'owner', b.id)).driveId).toBe(drive.id)
+  })
   it('only permits shared drive owners to invite; personal folders cannot be shared', async () => {
     const drive = await create('Shared')
     await driveMembers(

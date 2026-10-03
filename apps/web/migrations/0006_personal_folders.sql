@@ -56,11 +56,3 @@ DROP TABLE invitation;
 DROP TABLE member;
 DROP TABLE organization;
 
--- Enforce acyclicity in the database too, including concurrent moves.
-CREATE TRIGGER folder_no_cycle BEFORE UPDATE OF parent_id ON folder BEGIN
- SELECT CASE WHEN NEW.parent_id IN (
-   WITH RECURSIVE descendants(id) AS (
-     SELECT OLD.id UNION ALL SELECT f.id FROM folder f JOIN descendants d ON f.parent_id=d.id
-   ) SELECT id FROM descendants
- ) THEN RAISE(ABORT,'A folder cannot contain itself') END;
-END;

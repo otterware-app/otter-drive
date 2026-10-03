@@ -205,16 +205,30 @@ export async function updateFolder(
         'A folder cannot contain itself.',
       )
   }
-  await env.DB.prepare(
-    'UPDATE folder SET name=?,parent_id=?,updated_at=? WHERE id=?',
+  // Test the subtree in the same statement as the move, so concurrent moves
+  // cannot create a cycle between the earlier validation and this write.
+  const updated = await env.DB.prepare(
+    `WITH RECURSIVE descendants(id) AS (
+    SELECT id FROM folder WHERE id=? UNION ALL SELECT f.id FROM folder f JOIN descendants d ON f.parent_id=d.id
+  ) UPDATE folder SET name=?,parent_id=?,updated_at=? WHERE id=?
+    AND (? IS NULL OR NOT EXISTS(SELECT 1 FROM descendants WHERE id=?))`,
   )
     .bind(
+      id,
       input.name ?? row.name,
       input.parentId ?? row.parent_id,
       new Date().toISOString(),
       id,
+      input.parentId ?? row.parent_id,
+      input.parentId ?? row.parent_id,
     )
     .run()
+  if (!updated.meta.changes)
+    throw new HttpError(
+      409,
+      'folder_cycle',
+      'The destination changed. A folder cannot contain itself.',
+    )
   return json({
     data: mapFolder(
       {
