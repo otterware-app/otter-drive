@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, waitFor, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { Route } from './login'
+import { Route, safeCallback } from './login'
 
 const { signIn, search } = vi.hoisted(() => ({
   signIn: vi.fn(),
@@ -36,6 +36,16 @@ afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
 })
+
+it.each([
+  '/\n/evil.example',
+  '/\t/evil.example',
+  '/\r/evil.example',
+  '//evil.example',
+  '/\\evil.example',
+])('keeps a malformed callback on Drive: %j', (callback) =>
+  expect(safeCallback(callback)).toBe('/home'),
+)
 
 it('automatically reuses an Accounts session and keeps the requested Drive destination', async () => {
   search.callback = '/home?folder=shared'
