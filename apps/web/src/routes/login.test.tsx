@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 import { cleanup, render, waitFor, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { Route, safeCallback } from './login'
+import { defaultParseSearch } from '@tanstack/react-router'
+import { Route, safeCallback, searchSchema } from './login'
 
 const { signIn, search } = vi.hoisted(() => ({
   signIn: vi.fn(),
-  search: {} as Record<string, string>,
+  search: {} as Record<string, unknown>,
 }))
-vi.mock('@tanstack/react-router', () => ({
+vi.mock('@tanstack/react-router', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
   createFileRoute: () => (options: object) => ({
     options,
     useSearch: () => search,
@@ -107,3 +109,17 @@ it.each(['error', 'signed_out'])(
     expect(signIn).not.toHaveBeenCalled()
   },
 )
+
+it('renders the actual sign-out return URL without restarting OAuth', () => {
+  Object.assign(search, searchSchema.parse(defaultParseSearch('?signed_out=1')))
+  expect(search.signed_out).toBe(1)
+  const fetch = vi.fn()
+  vi.stubGlobal('fetch', fetch)
+  const Login = Route.options.component!
+  render(<Login />)
+  expect(
+    screen.getByRole('button', { name: 'Continue with Otter' }),
+  ).toBeDefined()
+  expect(fetch).not.toHaveBeenCalled()
+  expect(signIn).not.toHaveBeenCalled()
+})

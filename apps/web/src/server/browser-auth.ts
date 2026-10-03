@@ -35,14 +35,63 @@ export async function browserAuth(
     headers.set('content-type', 'text/html; charset=utf-8')
     headers.set(
       'content-security-policy',
-      `default-src 'none'; script-src 'nonce-${nonce}'; form-action ${accounts}; frame-ancestors 'none'; base-uri 'none'`,
+      `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; form-action ${accounts}; frame-ancestors 'none'; base-uri 'none'`,
     )
     // Accounts comes only from the deployment config, never a request parameter.
     const action = `${accounts}/otter/sign-out`
       .replaceAll('&', '&amp;')
       .replaceAll('"', '&quot;')
     return new Response(
-      `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Signing out · Otter</title></head><body><h1>Signing out of Otter</h1><form method="post" action="${action}"><input type="hidden" name="app" value="drive"><button>Continue signing out</button></form><script nonce="${nonce}">document.querySelector('form').requestSubmit();</script></body></html>`,
+      `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>Signing out · Otter</title>
+    <style nonce="${nonce}">
+:root {
+  color-scheme: light dark;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  --canvas: light-dark(#fff, #181818);
+  --frame: light-dark(#f9f9f9, #202020);
+  --text: light-dark(#0d0d0d, #ececec);
+  --muted: light-dark(#5d5d5d, #a3a3a3);
+  --line: light-dark(#e8e8e8, #2c2c2c);
+  background: var(--frame);
+  color: var(--text);
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+header { height: 42px; padding: 12px 16px; font-size: 14px; font-weight: 500; letter-spacing: -.025em; }
+main { min-height: calc(100svh - 46px); margin: 0 4px 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--canvas); display: grid; place-items: center; padding: 32px; }
+.status { width: 100%; max-width: 360px; text-align: center; }
+h1 { margin: 20px 0 10px; font-size: 24px; font-weight: 500; letter-spacing: -.035em; }
+p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.spinner { width: 24px; height: 24px; margin: auto; border: 2px solid var(--line); border-top-color: var(--text); border-radius: 50%; animation: spin .8s linear infinite; }
+form { margin-top: 24px; }
+button { font: inherit; font-size: 14px; padding: 10px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--canvas); color: var(--text); cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+    </style>
+  </head>
+  <body>
+    <header>Otter</header>
+    <main>
+      <div class="status" role="status">
+        <div class="spinner" aria-hidden="true"></div>
+        <h1>Signing out…</h1>
+        <p>Just a moment.</p>
+        <form method="post" action="${action}">
+          <input type="hidden" name="app" value="drive">
+          <button>Continue signing out</button>
+        </form>
+      </div>
+    </main>
+    <script nonce="${nonce}">const form = document.querySelector('form'); form.hidden = true; setTimeout(() => { form.hidden = false; }, 1500); form.requestSubmit();</script>
+  </body>
+</html>`,
       { headers },
     )
   }
