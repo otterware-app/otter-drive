@@ -249,7 +249,7 @@ function PaletteCard({
       {
         id: 'sign-out',
         icon: <LogOutIcon className={ICON} />,
-        title: 'Sign out',
+        title: 'Sign out of Otter',
         keywords: 'log out',
         run: signOut,
       },

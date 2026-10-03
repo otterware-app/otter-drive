@@ -46,11 +46,11 @@ export function AccountPane() {
           }
         />
         <SettingsRow
-          title="Sign out"
-          description="On this browser. Your agents stay signed in."
+          title="Sign out of Otter"
+          description="Signs out of Mail and Drive in this browser. Your other devices and agents stay signed in."
           control={
             <Button size="sm" onClick={signOut}>
-              Sign out
+              Sign out of Otter
             </Button>
           }
         />
