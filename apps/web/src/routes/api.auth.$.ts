@@ -4,9 +4,12 @@ import { authenticate } from '#/server/actor'
 import { listFolders } from '#/server/folders'
 import { errorResponse } from '#/server/http'
 import { createAuth } from '#/server/auth'
+import { browserAuth } from '#/server/browser-auth'
 
 async function handler({ request }: { request: Request }) {
   const auth = createAuth(env)
+  const browser = await browserAuth(request, env, auth)
+  if (browser) return browser
   // Older installed CLIs can still discover/select their existing drives.
   if (
     new URL(request.url).pathname === '/api/auth/organization/list' &&
