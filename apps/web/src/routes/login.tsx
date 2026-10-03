@@ -19,7 +19,9 @@ export const Route = createFileRoute('/login')({
 export function safeCallback(value?: string): string {
   return value?.startsWith('/') &&
     !value.startsWith('//') &&
-    !value.includes('\\')
+    !value.includes('\\') &&
+    // Browsers strip tabs and newlines before parsing a navigation URL.
+    !/\p{Cc}/u.test(value)
     ? value
     : '/home'
 }
