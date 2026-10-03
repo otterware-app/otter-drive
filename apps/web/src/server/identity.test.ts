@@ -5,6 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createAuth } from './auth'
 import { authenticate } from './actor'
 import { deleteIdentity, identityRequest } from './identity'
+import { browserAuth } from './browser-auth'
 import type { Env } from './types'
 
 let server: ReturnType<typeof createServer>
@@ -98,6 +99,8 @@ beforeEach(() => {
   env = {
     APP_URL: 'http://drive.test',
     OTTER_AUTH_URL: issuer,
+    MAIL_AUTH_URL: 'http://relay.mail.test',
+    MAIL_URL: 'http://mail.test',
     BETTER_AUTH_SECRET: 'test-drive-auth-secret-at-least-32-characters',
     ADMIN_EMAIL: 'owner@example.com',
     DB: db as unknown as D1Database,
@@ -206,6 +209,118 @@ async function eventToken(
 }
 
 describe('shared Otter identity', () => {
+  it('clears the current browser including a legacy session, preserving another device and API keys', async () => {
+    const here = await login()
+    const elsewhere = await login()
+    const hereHeaders = new Headers({ cookie: cookies(here.response) })
+    const otherHeaders = new Headers({ cookie: cookies(elsewhere.response) })
+    const current = await here.auth.api.getSession({ headers: hereHeaders })
+    db.sqlite
+      .prepare('UPDATE session SET otterSessionId=NULL WHERE id=?')
+      .run(current!.session.id)
+    const key = await here.auth.api.createApiKey({
+      headers: hereHeaders,
+      body: { configId: 'user', name: 'Agent' },
+    })
+    const started = await browserAuth(
+      new Request(`${env.APP_URL}/api/auth/browser-sign-out/start`, {
+        method: 'POST',
+        headers: { origin: env.APP_URL },
+      }),
+      env,
+      here.auth,
+    )
+    expect(await started!.text()).toContain(
+      `action="${new URL(issuer).origin}/otter/sign-out"`,
+    )
+    for (const origin of [
+      'http://evil.test',
+      'https://usercontent.otterware.app',
+      '',
+    ]) {
+      expect(
+        (
+          await browserAuth(
+            new Request(`${env.APP_URL}/api/auth/browser-sign-out`, {
+              method: 'POST',
+              headers: { origin, cookie: cookies(here.response) },
+              body: new URLSearchParams({ app: 'drive' }),
+            }),
+            env,
+            here.auth,
+          )
+        )?.status,
+      ).toBe(403)
+    }
+    const logout = await browserAuth(
+      new Request(`${env.APP_URL}/api/auth/browser-sign-out`, {
+        method: 'POST',
+        headers: { origin: env.MAIL_AUTH_URL, cookie: cookies(here.response) },
+        body: new URLSearchParams({ app: 'drive' }),
+      }),
+      env,
+      here.auth,
+    )
+    expect(logout?.status).toBe(303)
+    expect(logout?.headers.get('location')).toBe(
+      `${env.APP_URL}/login?signed_out=1`,
+    )
+    expect(logout?.headers.get('set-cookie')).toContain('Max-Age=0')
+    expect(await here.auth.api.getSession({ headers: hereHeaders })).toBeNull()
+    expect(
+      await here.auth.api.getSession({ headers: otherHeaders }),
+    ).not.toBeNull()
+    expect(
+      (
+        await here.auth.api.verifyApiKey({
+          body: { key: key.key, configId: 'user' },
+        })
+      ).valid,
+    ).toBe(true)
+  })
+
+  it('only completes browser logout for a trusted POST and fixed app destination', async () => {
+    const { auth } = await login()
+    expect(
+      (
+        await browserAuth(
+          new Request(`${env.APP_URL}/api/auth/browser-sign-out`),
+          env,
+          auth,
+        )
+      )?.status,
+    ).toBe(405)
+    expect(
+      (
+        await browserAuth(
+          new Request(`${env.APP_URL}/api/auth/browser-sign-out`, {
+            method: 'POST',
+            headers: { origin: env.MAIL_AUTH_URL },
+            body: new URLSearchParams({ app: 'https://evil.test' }),
+          }),
+          env,
+          auth,
+        )
+      )?.status,
+    ).toBe(400)
+    for (const [app, destination] of [
+      ['mail', `${env.MAIL_URL}/?signed_out=1`],
+      ['accounts', `${new URL(issuer).origin}/otter/sign-in?signed_out=1`],
+    ] as const) {
+      const response = await browserAuth(
+        new Request(`${env.APP_URL}/api/auth/browser-sign-out`, {
+          method: 'POST',
+          headers: { origin: env.MAIL_AUTH_URL },
+          body: new URLSearchParams({ app }),
+        }),
+        env,
+        auth,
+      )
+      expect(response?.status).toBe(303)
+      expect(response?.headers.get('location')).toBe(destination)
+    }
+  })
+
   it('uses the canonical Mail user and personal API keys when signing in through Otter', async () => {
     const { auth, response } = await login()
     expect(response.status).toBe(302)

@@ -11,6 +11,8 @@ import type { Env } from './types'
 function testEnv(): Env {
   return {
     APP_URL: 'http://localhost:3000',
+    MAIL_AUTH_URL: 'http://localhost:8787',
+    MAIL_URL: 'http://localhost:5833',
     OTTER_AUTH_URL: 'http://localhost:8787/v1/auth',
     CONTENT_URL: 'http://localhost:3000',
     ADMIN_EMAIL: 'chris.kafrouni@gmail.com',
