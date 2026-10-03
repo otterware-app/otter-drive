@@ -230,6 +230,7 @@ describe('shared Otter identity', () => {
       env,
       here.auth,
     )
+    expect(started!.headers.get('referrer-policy')).toBe('strict-origin')
     expect(await started!.text()).toContain(
       `action="${new URL(issuer).origin}/otter/sign-out"`,
     )
