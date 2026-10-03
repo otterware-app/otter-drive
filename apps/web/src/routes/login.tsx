@@ -5,10 +5,14 @@ import { authClient } from '#/lib/auth-client'
 import { AuthMessage, AuthShell } from '#/main/auth/auth-shell'
 import { Button } from '@/components/ui/button'
 
-const searchSchema = z.object({
+export const searchSchema = z.object({
   callback: z.string().optional(),
   error: z.string().optional(),
-  signed_out: z.string().optional(),
+  // TanStack Router parses the query value in ?signed_out=1 as a number.
+  signed_out: z
+    .union([z.literal(1), z.literal('1')])
+    .optional()
+    .catch(undefined),
 })
 export const Route = createFileRoute('/login')({
   validateSearch: searchSchema,
