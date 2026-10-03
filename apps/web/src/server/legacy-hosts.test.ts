@@ -12,12 +12,12 @@ describe('legacy domains', () => {
     'redirects browser links on %s with their path and query',
     (host) => {
       const response = migrateLegacyRequest(
-        new Request(`https://${host}/team/a/report/?version=2`),
+        new Request(`https://${host}/folder/a/report/?version=2`),
         env,
       ) as Response
       expect(response.status).toBe(308)
       expect(response.headers.get('location')).toBe(
-        'https://drive.otterware.app/team/a/report/?version=2',
+        'https://drive.otterware.app/folder/a/report/?version=2',
       )
     },
   )
@@ -31,7 +31,7 @@ describe('legacy domains', () => {
           authorization: 'Bearer existing-token',
           'x-api-key': 'otw_existing',
           'content-type': 'application/json',
-          'x-otterdrive-organization': 'existing-org',
+          'x-otterdrive-folder': 'existing-org',
         },
         body: JSON.stringify({ title: 'Report' }),
       })

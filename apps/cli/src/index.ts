@@ -2,7 +2,7 @@ import { Command } from 'commander'
 import packageJson from '../package.json' with { type: 'json' }
 import { registerArtifactCommands } from './artifacts'
 import { registerAuthCommands } from './auth'
-import { registerOrganizationCommands } from './organizations'
+import { registerFolderCommands } from './folders'
 
 const program = new Command()
   .name('otterdrive')
@@ -15,7 +15,7 @@ const program = new Command()
   .showHelpAfterError()
 
 registerAuthCommands(program)
-registerOrganizationCommands(program)
+registerFolderCommands(program)
 registerArtifactCommands(program)
 
 program.parseAsync().catch((error: unknown) => {

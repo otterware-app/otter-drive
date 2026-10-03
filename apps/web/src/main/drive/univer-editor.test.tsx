@@ -50,8 +50,8 @@ const props = {
   version: 2,
   kind: 'document' as const,
   documentFormat: 'markdown' as const,
-  organizationId: 'org-chris',
-  organizationSlug: 'chris',
+  folderId: 'org-chris',
+  folderSlug: 'chris',
   slug: 'roadmap',
   text: '# Roadmap',
 }

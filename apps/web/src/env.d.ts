@@ -7,6 +7,7 @@ declare global {
     ADMIN_EMAIL: string
     BETTER_AUTH_SECRET: string
     CONTENT_SIGNING_KEY: string
+    OTTER_AUTH_URL: string
     GOOGLE_CLIENT_ID: string
     GOOGLE_CLIENT_SECRET: string
     RESEND_API_KEY?: string

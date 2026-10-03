@@ -24,41 +24,41 @@ import {
 } from '#/lib/session-cache'
 
 /**
- * A team's documents: the list query (session-cached, so the list paints at
+ * A folder's documents: the list query (session-cached, so the list paints at
  * once on reload), what kind each one is, the sidebar's views, and the
  * actions that change them.
  */
 
 export type DocumentStatus = 'active' | 'archived'
 
-export const documentsQueryKey = (teamId: string, status: DocumentStatus) =>
-  ['artifacts', teamId, status] as const
+export const documentsQueryKey = (folderId: string, status: DocumentStatus) =>
+  ['artifacts', folderId, status] as const
 
-const storageKey = (teamId: string, status: DocumentStatus) =>
-  `otterdrive:artifacts:${teamId}:${status}`
+const storageKey = (folderId: string, status: DocumentStatus) =>
+  `otterdrive:artifacts:${folderId}:${status}`
 
 async function fetchDocuments(
-  teamId: string,
+  folderId: string,
   status: DocumentStatus,
 ): Promise<Artifact[]> {
   const archived = status === 'archived' ? '&archived=only' : ''
   const result = await api<unknown>(`/api/v1/artifacts?limit=100${archived}`, {
-    organizationId: teamId,
+    folderId: folderId,
   })
   return writeSessionCache(
-    storageKey(teamId, status),
+    storageKey(folderId, status),
     artifactListResponseSchema.parse(result).data,
   )
 }
 
-export function documentsQuery(teamId: string, status: DocumentStatus) {
+export function documentsQuery(folderId: string, status: DocumentStatus) {
   const stored = readSessionCache<Artifact[]>(
-    storageKey(teamId, status),
+    storageKey(folderId, status),
     60_000,
   )
   return {
-    queryKey: documentsQueryKey(teamId, status),
-    queryFn: () => fetchDocuments(teamId, status),
+    queryKey: documentsQueryKey(folderId, status),
+    queryFn: () => fetchDocuments(folderId, status),
     ...(stored
       ? { initialData: stored.value, initialDataUpdatedAt: stored.savedAt }
       : {}),
@@ -67,18 +67,18 @@ export function documentsQuery(teamId: string, status: DocumentStatus) {
 }
 
 export function useDocuments(
-  teamId: string | undefined,
+  folderId: string | undefined,
   status: DocumentStatus,
 ) {
   // The session cache only seeds the first render; don't re-read it each time.
   const options = useMemo(
-    () => documentsQuery(teamId ?? 'none', status),
-    [teamId, status],
+    () => documentsQuery(folderId ?? 'none', status),
+    [folderId, status],
   )
-  const query = useQuery({ ...options, enabled: Boolean(teamId) })
+  const query = useQuery({ ...options, enabled: Boolean(folderId) })
   return {
     documents: query.data ?? [],
-    loading: !teamId || query.isPending,
+    loading: !folderId || query.isPending,
     error: query.error instanceof Error ? query.error.message : null,
   }
 }
@@ -148,6 +148,7 @@ export function documentKind(artifact: Artifact): DocumentKind {
 }
 
 export const driveSearchSchema = z.object({
+  folder: z.string().max(256).optional().catch(undefined),
   q: z.string().max(200).optional().catch(undefined),
   sort: z.enum(['updated', 'az', 'za']).optional().catch(undefined),
   view: z.enum(['recent', 'archived']).optional().catch(undefined),
@@ -201,32 +202,34 @@ export function visibleDocuments(
 // Actions
 // ---------------------------------------------------------------------------
 
-/** Changes to a team's documents, reflected at once in every cached list. */
-export function useDocumentActions(teamId: string | undefined) {
+/** Changes to a folder's documents, reflected at once in every cached list. */
+export function useDocumentActions(folderId: string | undefined) {
   const queryClient = useQueryClient()
 
   const update = useCallback(
     (status: DocumentStatus, change: (current: Artifact[]) => Artifact[]) => {
-      if (!teamId) return
+      if (!folderId) return
       queryClient.setQueryData<Artifact[]>(
-        documentsQueryKey(teamId, status),
+        documentsQueryKey(folderId, status),
         (current) =>
           current
-            ? writeSessionCache(storageKey(teamId, status), change(current))
+            ? writeSessionCache(storageKey(folderId, status), change(current))
             : current,
       )
     },
-    [queryClient, teamId],
+    [queryClient, folderId],
   )
 
   const forget = useCallback(
     (artifact: Artifact) => {
-      removeSessionCachePrefix(`otterdrive:artifact:${teamId}:${artifact.slug}`)
+      removeSessionCachePrefix(
+        `otterdrive:artifact:${folderId}:${artifact.slug}`,
+      )
       void queryClient.invalidateQueries({
-        queryKey: ['artifact-bootstrap', teamId, artifact.slug],
+        queryKey: ['artifact-bootstrap', folderId, artifact.slug],
       })
     },
-    [queryClient, teamId],
+    [queryClient, folderId],
   )
 
   /** Adds or refreshes one document (after an upload or an edit). */
@@ -248,11 +251,11 @@ export function useDocumentActions(teamId: string | undefined) {
         archived
           ? await api<unknown>(path, {
               method: 'DELETE',
-              organizationId: teamId,
+              folderId: folderId,
             })
           : await api<unknown>(`${path}/restore`, {
               method: 'POST',
-              organizationId: teamId,
+              folderId: folderId,
             }),
       ).data
       update(archived ? 'active' : 'archived', (current) =>
@@ -262,7 +265,7 @@ export function useDocumentActions(teamId: string | undefined) {
       forget(artifact)
       return result
     },
-    [forget, put, teamId, update],
+    [forget, put, folderId, update],
   )
 
   const removed = useCallback(
@@ -285,8 +288,8 @@ export function useDocumentActions(teamId: string | undefined) {
           `/api/v1/artifacts/${encodeURIComponent(artifact.id)}/move`,
           {
             method: 'POST',
-            organizationId: teamId,
-            body: JSON.stringify({ organizationId: destinationId }),
+            folderId: folderId,
+            body: JSON.stringify({ folderId: destinationId }),
           },
         ),
       ).data
@@ -297,7 +300,7 @@ export function useDocumentActions(teamId: string | undefined) {
       })
       return result
     },
-    [queryClient, removed, teamId],
+    [queryClient, removed, folderId],
   )
 
   return { put, setArchived, removed, move }

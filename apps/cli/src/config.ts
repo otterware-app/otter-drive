@@ -7,6 +7,8 @@ export interface Profile {
   apiUrl: string
   accessToken?: string | undefined
   apiKey?: string | undefined
+  folderId?: string | undefined
+  /** Read compatibility with CLI profiles created before personal drives. */
   organizationId?: string | undefined
 }
 
@@ -110,6 +112,7 @@ export async function getProfile(name?: string): Promise<{
       process.env.OTTERDRIVE_URL ?? process.env.OTTERWARE_URL ?? stored.apiUrl,
     ),
   }
+  profile.folderId ??= profile.organizationId
   const token = process.env.OTTERDRIVE_TOKEN ?? process.env.OTTERWARE_TOKEN
   if (token) {
     delete profile.apiKey
@@ -117,10 +120,13 @@ export async function getProfile(name?: string): Promise<{
     if (token.startsWith('otw_')) profile.apiKey = token
     else profile.accessToken = token
   }
-  const organization =
-    process.env.OTTERDRIVE_ORGANIZATION ?? process.env.OTTERWARE_ORGANIZATION
-  if (organization) {
-    profile.organizationId = organization
+  const folder =
+    process.env.OTTERDRIVE_FOLDER ??
+    process.env.OTTERWARE_FOLDER ??
+    process.env.OTTERDRIVE_ORGANIZATION ??
+    process.env.OTTERWARE_ORGANIZATION
+  if (folder) {
+    profile.folderId = folder
   }
   return { name: profileName, profile }
 }

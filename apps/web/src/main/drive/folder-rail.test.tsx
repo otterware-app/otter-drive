@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { TeamRail } from './team-rail'
+import { FolderRail } from './folder-rail'
 
 const { session } = vi.hoisted(() => ({
   session: {
@@ -23,29 +23,45 @@ vi.mock('next-themes', () => ({
 vi.mock('#/lib/auth-client', () => ({
   authClient: { useSession: () => session, signOut: vi.fn() },
 }))
-vi.mock('./new-team-dialog', () => ({ NewTeamDialog: () => null }))
+vi.mock('./new-folder-dialog', () => ({ NewFolderDialog: () => null }))
 
-const teams = [
-  { id: 'org-1', name: 'Otter Drive Team', slug: 'otterware' },
-  { id: 'org-2', name: 'Zentio', slug: 'zentio' },
+const folders = [
+  {
+    id: 'org-1',
+    name: 'Otter Drive Folder',
+    slug: 'otterware',
+    parentId: null,
+    kind: 'personal' as const,
+    ownerUserId: 'owner',
+    role: 'owner' as const,
+  },
+  {
+    id: 'org-2',
+    name: 'Zentio',
+    slug: 'zentio',
+    parentId: null,
+    kind: 'shared' as const,
+    ownerUserId: 'owner',
+    role: 'owner' as const,
+  },
 ]
 
 afterEach(cleanup)
 
-describe('TeamRail', () => {
-  it('lists the teams, lighting the one showing', () => {
-    const onSelectTeam = vi.fn()
+describe('FolderRail', () => {
+  it('lists the folders, lighting the one showing', () => {
+    const onSelectFolder = vi.fn()
     render(
-      <TeamRail
-        teams={teams}
-        currentTeamId="org-1"
+      <FolderRail
+        folders={folders}
+        currentFolderId="org-1"
         settingsOpen={false}
-        onSelectTeam={onSelectTeam}
+        onSelectFolder={onSelectFolder}
       />,
     )
     expect(
       screen
-        .getByRole('button', { name: 'Otter Drive Team' })
+        .getByRole('button', { name: 'Otter Drive Folder' })
         .getAttribute('aria-current'),
     ).toBe('page')
     expect(
@@ -54,39 +70,30 @@ describe('TeamRail', () => {
         .getAttribute('aria-current'),
     ).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Zentio' }))
-    expect(onSelectTeam).toHaveBeenCalledWith(teams[1])
+    expect(onSelectFolder).toHaveBeenCalledWith(folders[1])
   })
 
-  it('offers new teams to platform admins only', () => {
-    const { rerender } = render(
-      <TeamRail
-        teams={teams}
-        currentTeamId="org-1"
+  it('lets any signed-in person create a shared drive', () => {
+    render(
+      <FolderRail
+        folders={folders}
+        currentFolderId="org-1"
         settingsOpen={false}
-        onSelectTeam={vi.fn()}
+        onSelectFolder={vi.fn()}
       />,
     )
-    expect(screen.queryByRole('button', { name: 'New team' })).toBeNull()
-    session.data.user.role = 'admin'
-    rerender(
-      <TeamRail
-        teams={teams}
-        currentTeamId="org-2"
-        settingsOpen={false}
-        onSelectTeam={vi.fn()}
-      />,
-    )
-    expect(screen.getByRole('button', { name: 'New team' })).toBeTruthy()
-    session.data.user.role = 'user'
+    expect(
+      screen.getByRole('button', { name: 'New shared drive' }),
+    ).toBeTruthy()
   })
 
   it('opens the account menu with Settings and Sign out', async () => {
     render(
-      <TeamRail
-        teams={teams}
-        currentTeamId="org-1"
+      <FolderRail
+        folders={folders}
+        currentFolderId="org-1"
         settingsOpen={false}
-        onSelectTeam={vi.fn()}
+        onSelectFolder={vi.fn()}
       />,
     )
     fireEvent.click(

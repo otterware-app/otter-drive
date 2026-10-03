@@ -18,8 +18,8 @@ export class ApiClient {
     if (this.profile.accessToken) {
       headers.set('authorization', `Bearer ${this.profile.accessToken}`)
     }
-    if (this.profile.organizationId) {
-      headers.set('x-otterdrive-organization', this.profile.organizationId)
+    if (this.profile.folderId) {
+      headers.set('x-otterdrive-folder', this.profile.folderId)
     }
     if (
       init.body &&

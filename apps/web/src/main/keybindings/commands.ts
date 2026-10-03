@@ -16,7 +16,7 @@ export type KeybindingCommand =
   | 'list.next'
   | 'list.previous'
   | 'document.close'
-  | `team.jump.${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`
+  | `folder.jump.${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`
 
 export interface Keybinding {
   command: KeybindingCommand
@@ -35,10 +35,10 @@ export const KEYBINDINGS: readonly Keybinding[] = [
   { command: 'list.previous', key: 'k' },
   { command: 'list.previous', key: 'ArrowUp' },
   { command: 'document.close', key: 'Escape' },
-  // ⌥1…⌥9 pick a team in the rail (⌘1… belong to the browser's tabs). Not
+  // ⌥1…⌥9 pick a folder in the rail (⌘1… belong to the browser's tabs). Not
   // while typing: ⌥digits type #, [, | and friends on many layouts.
   ...([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((digit): Keybinding => ({
-    command: `team.jump.${digit}`,
+    command: `folder.jump.${digit}`,
     key: `alt+${digit}`,
   })),
 ]

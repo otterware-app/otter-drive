@@ -1,309 +1,172 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { authClient } from '#/lib/auth-client'
+import { api } from '#/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RowSelect } from '@/components/ui/select'
 import { toast } from '@/components/ui/toast'
-import { UserAvatar } from '../drive/team-mark'
-import { useTeamRole } from '../team-role'
-import { useTeams } from '../teams'
+import { announceFoldersChanged, driveForFolder, useFolders } from '../folders'
 import {
-  CopyField,
-  SettingsGroup,
   SettingsPageContainer,
   SettingsRow,
   SettingsSection,
-  SettingsSectionHeader,
 } from './settings-ui'
-
-const ROLES = [
-  { value: 'viewer', label: 'Viewer' },
-  { value: 'editor', label: 'Editor' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'owner', label: 'Owner' },
-]
-const INVITE_ROLES = ROLES.filter((role) => role.value !== 'owner')
-const ROLE_HELP: Record<string, string> = {
-  viewer: 'Viewers read documents.',
-  editor: 'Editors also upload, edit and archive.',
-  admin: 'Admins also manage members and agent keys.',
-}
-
-type Member = {
+interface Member {
   id: string
-  role: string
-  userId: string
-  user: { name: string; email: string; image?: string | null }
+  email: string
+  role: 'viewer' | 'editor'
+  userId: string | null
 }
-type Invitation = { id: string; email: string; role: string; status: string }
-
-function inviteLink(id: string) {
-  return `${location.origin}/invite/${id}`
-}
-
-async function copy(value: string) {
-  try {
-    await navigator.clipboard.writeText(value)
-    toast.success('Copied')
-  } catch {
-    toast.error('Could not copy to the clipboard')
-  }
-}
-
 export function MembersPane() {
-  const { activeTeam: team } = useTeams()
-  const session = authClient.useSession()
-  const { canManage } = useTeamRole(team?.id, Boolean(team))
-  const queryClient = useQueryClient()
-  const [email, setEmail] = useState('')
-  const [role, setRole] = useState('viewer')
-  const [link, setLink] = useState<string | null>(null)
-  const [inviting, setInviting] = useState(false)
-
-  const members = useQuery({
-    enabled: Boolean(team),
-    queryKey: ['members', team?.id],
-    queryFn: async () => {
-      const result = await authClient.organization.listMembers({
-        query: { organizationId: team!.id },
-      })
-      if (result.error) throw new Error(result.error.message)
-      return (result.data?.members ?? []) as Member[]
-    },
+  const { folders, activeFolder } = useFolders(),
+    drive = driveForFolder(folders, activeFolder),
+    qc = useQueryClient()
+  const [email, setEmail] = useState(''),
+    [role, setRole] = useState<'viewer' | 'editor'>('editor'),
+    [saving, setSaving] = useState(false)
+  const enabled = drive?.kind === 'shared' && drive.role === 'owner'
+  const query = useQuery({
+    queryKey: ['drive-members', drive?.id],
+    enabled,
+    queryFn: () =>
+      api<{ data: Member[] }>(`/api/v1/folders/${drive!.id}/members`),
   })
-  const invitations = useQuery({
-    enabled: Boolean(team) && canManage,
-    queryKey: ['invitations', team?.id],
-    queryFn: async () => {
-      const result = await authClient.organization.listInvitations({
-        query: { organizationId: team!.id },
+  async function invite(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await api(`/api/v1/folders/${drive!.id}/members`, {
+        method: 'POST',
+        body: JSON.stringify({ email, role }),
       })
-      if (result.error) throw new Error(result.error.message)
-      return ((result.data ?? []) as Invitation[]).filter(
-        (item) => item.status === 'pending',
-      )
-    },
-  })
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: ['members', team?.id] })
-    void queryClient.invalidateQueries({ queryKey: ['invitations', team?.id] })
-  }
-
-  async function invite(event: React.FormEvent) {
-    event.preventDefault()
-    if (!team) return
-    setInviting(true)
-    const result = await authClient.organization.inviteMember({
-      email,
-      role: role as 'admin' | 'editor' | 'viewer',
-      organizationId: team.id,
-    })
-    setInviting(false)
-    if (result.error || !result.data) {
-      toast.error('Could not invite', { description: result.error?.message })
-      return
+      setEmail('')
+      await qc.invalidateQueries({ queryKey: ['drive-members', drive?.id] })
+      toast.success('Access granted. Share a link to this drive with them.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
     }
-    setLink(inviteLink(result.data.id))
-    setEmail('')
-    toast.success(`Invited ${result.data.email}`)
-    refresh()
   }
-
-  async function changeRole(member: Member, next: string) {
-    const result = await authClient.organization.updateMemberRole({
-      memberId: member.id,
-      role: next as 'owner' | 'admin' | 'editor' | 'viewer',
-      organizationId: team!.id,
-    })
-    if (result.error)
-      toast.error('Could not change the role', {
-        description: result.error.message,
+  async function remove(id: string) {
+    try {
+      await api(`/api/v1/folders/${drive!.id}/members/${id}`, {
+        method: 'DELETE',
       })
-    refresh()
-  }
-
-  async function remove(member: Member) {
-    const result = await authClient.organization.removeMember({
-      memberIdOrEmail: member.id,
-      organizationId: team!.id,
-    })
-    if (result.error) {
-      toast.error('Could not remove the member', {
-        description: result.error.message,
-      })
-      return
+      await qc.invalidateQueries({ queryKey: ['drive-members', drive?.id] })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
     }
-    toast.success(`Removed ${member.user.name || member.user.email}`)
-    refresh()
   }
-
-  async function cancel(invitation: Invitation) {
-    const result = await authClient.organization.cancelInvitation({
-      invitationId: invitation.id,
-    })
-    if (result.error)
-      toast.error('Could not cancel the invitation', {
-        description: result.error.message,
-      })
-    refresh()
-  }
-
   return (
     <SettingsPageContainer
-      title="Members"
+      title="Shared drive access"
       description={
-        team
-          ? `Who can open ${team.name}’s documents.`
-          : 'Who can open documents.'
+        drive?.kind === 'shared'
+          ? `Access to ${drive.name} includes all its folders and documents.`
+          : 'Your personal drive is private. Create a shared drive to collaborate.'
       }
     >
-      {canManage ? (
-        <SettingsSection
-          title="Invite"
-          description="Otter Drive is invitation-only: the invitation is the way in."
-        >
-          <SettingsRow
-            title="Email address"
-            description={ROLE_HELP[role]}
-            control={
-              <form
-                className="flex flex-wrap items-center gap-2"
-                onSubmit={invite}
-              >
+      {enabled ? (
+        <>
+          <SettingsSection title="Invite people">
+            <SettingsRow
+              title="Google email"
+              description="They sign in with this Google account. No email is sent; copy and send them the drive link."
+            >
+              <form onSubmit={invite} className="mt-3 flex gap-2">
                 <Input
-                  size="sm"
+                  aria-label="Email to invite"
                   type="email"
                   required
-                  aria-label="Email address"
-                  placeholder="colleague@example.com"
-                  className="w-56"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
                 <RowSelect
-                  ariaLabel="Role"
+                  ariaLabel="Access"
                   value={role}
-                  options={INVITE_ROLES}
-                  onValueChange={setRole}
+                  options={[
+                    { value: 'editor', label: 'Can edit' },
+                    { value: 'viewer', label: 'Can view' },
+                  ]}
+                  onValueChange={(v) => setRole(v as typeof role)}
                 />
-                <Button
-                  size="sm"
-                  variant="accent"
-                  type="submit"
-                  disabled={inviting || !email}
-                >
+                <Button type="submit" disabled={saving}>
                   Invite
                 </Button>
               </form>
-            }
-          >
-            {link ? (
-              <>
-                <p className="mt-3 text-[13px] text-muted-foreground">
-                  Send them this link, or let the email do it.
-                </p>
-                <CopyField value={link} onCopy={() => void copy(link)} />
-              </>
-            ) : null}
-          </SettingsRow>
-        </SettingsSection>
-      ) : null}
-
-      <section>
-        <SettingsSectionHeader
-          title="Members"
-          description={
-            members.data
-              ? `${members.data.length} ${members.data.length === 1 ? 'person' : 'people'}`
-              : undefined
-          }
-        />
-        <SettingsGroup>
-          {members.isPending ? (
-            <div className="px-4 py-4 text-sm text-muted-foreground">
-              Loading…
-            </div>
-          ) : members.error ? (
-            <div className="px-4 py-4 text-sm text-destructive-foreground">
-              {members.error.message}
-            </div>
-          ) : (
-            (members.data ?? []).map((member) => {
-              const you = member.userId === session.data?.user.id
-              return (
-                <div
-                  key={member.id}
-                  className="flex items-center gap-3 px-4 py-2.5"
-                >
-                  <UserAvatar user={member.user} className="size-8 text-xs" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm text-foreground">
-                      {member.user.name || member.user.email}
-                      {you ? (
-                        <span className="text-muted-foreground"> (you)</span>
-                      ) : null}
-                    </div>
-                    <div className="truncate text-[13px] text-muted-foreground">
-                      {member.user.email}
-                    </div>
-                  </div>
-                  {canManage && !you ? (
-                    <>
-                      <RowSelect
-                        ariaLabel={`Role of ${member.user.email}`}
-                        value={member.role}
-                        options={ROLES}
-                        onValueChange={(next) => void changeRole(member, next)}
-                      />
-                      <Button
-                        size="sm"
-                        variant="ghost-destructive"
-                        onClick={() => void remove(member)}
-                      >
-                        Remove
-                      </Button>
-                    </>
-                  ) : (
-                    <span className="text-[13px] text-muted-foreground capitalize">
-                      {member.role}
-                    </span>
-                  )}
-                </div>
-              )
-            })
-          )}
-        </SettingsGroup>
-      </section>
-
-      {canManage && invitations.data && invitations.data.length > 0 ? (
-        <SettingsSection title="Pending invitations">
-          {invitations.data.map((invitation) => (
+            </SettingsRow>
             <SettingsRow
-              key={invitation.id}
-              title={invitation.email}
-              description={`Invited as ${invitation.role}`}
+              title="Drive link"
               control={
-                <>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => void copy(inviteLink(invitation.id))}
-                  >
-                    Copy link
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost-destructive"
-                    onClick={() => void cancel(invitation)}
-                  >
-                    Cancel
-                  </Button>
-                </>
+                <Button
+                  onClick={() =>
+                    void navigator.clipboard
+                      .writeText(
+                        `${location.origin}/home?folder=${encodeURIComponent(drive!.id)}`,
+                      )
+                      .then(() => toast.success('Link copied'))
+                  }
+                >
+                  Copy link
+                </Button>
               }
             />
-          ))}
-        </SettingsSection>
+          </SettingsSection>
+          <SettingsSection title="People with access">
+            {query.data?.data.map((m) => (
+              <SettingsRow
+                key={m.id}
+                title={m.email}
+                description={`${m.role === 'editor' ? 'Can edit' : 'Can view'}${m.userId ? '' : ' · Pending sign-in'}`}
+                control={
+                  <div className="flex gap-2">
+                    {m.userId ? (
+                      <Button
+                        onClick={() => {
+                          if (
+                            !confirm(
+                              `Transfer this shared drive to ${m.email}? You will become an editor.`,
+                            )
+                          )
+                            return
+                          void api(`/api/v1/folders/${drive!.id}/owner`, {
+                            method: 'POST',
+                            body: JSON.stringify({ userId: m.userId }),
+                          })
+                            .then(() => {
+                              announceFoldersChanged()
+                              void qc.invalidateQueries({ queryKey: ['actor'] })
+                              toast.success('Ownership transferred')
+                            })
+                            .catch((e) => toast.error(e.message))
+                        }}
+                      >
+                        Make owner
+                      </Button>
+                    ) : null}
+                    <Button
+                      variant="ghost-destructive"
+                      onClick={() => void remove(m.id)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                }
+              />
+            ))}
+            {query.error ? <p role="alert">{query.error.message}</p> : null}
+            {query.data?.data.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">
+                Only you have access.
+              </p>
+            ) : null}
+          </SettingsSection>
+        </>
+      ) : drive?.kind === 'shared' ? (
+        <p className="p-4 text-sm text-muted-foreground">
+          The drive owner manages invitations.
+        </p>
       ) : null}
     </SettingsPageContainer>
   )

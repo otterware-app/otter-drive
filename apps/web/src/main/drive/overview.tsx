@@ -5,42 +5,46 @@ import type { Artifact } from '@otterware/contracts'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { shortcutLabel } from '../keybindings/commands'
-import type { Team } from '../teams'
+import type { Folder } from '../folders'
 import { DocumentThumb } from './document-list'
 import { KIND_META, WEEK_MS, documentKind, formatRelative } from './documents'
-import { NewTeamDialog } from './new-team-dialog'
-import { useCanCreateTeams } from './team-rail'
-import { TeamMark } from './team-mark'
+import { NewFolderDialog } from './new-folder-dialog'
+import { useCanCreateFolders } from './folder-rail'
+import { FolderMark } from './folder-mark'
 import { requestUpload } from './upload-dialog'
 
 /**
  * The main pane with no document open (Otter Mail's "Select a conversation",
- * made useful): the team at a glance, and its latest documents to pick up
+ * made useful): the folder at a glance, and its latest documents to pick up
  * where you left off.
  */
 export function Overview({
-  team,
+  folder,
   documents,
   loading,
-  noTeam,
+  noFolder,
 }: {
-  team: Team | null
+  folder: Folder | null
   documents: Artifact[]
   loading: boolean
-  noTeam: boolean
+  noFolder: boolean
 }) {
-  if (noTeam) return <NoTeam />
-  if (loading || !team) return null
+  if (noFolder) return <NoFolder />
+  if (loading || !folder) return null
   const active = documents.filter((artifact) => !artifact.archivedAt)
   if (active.length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
         <EmptyState
           icon={FilesIcon}
-          title={`${team.name} has no documents yet`}
+          title={`${folder.name} has no documents yet`}
           description="Drop files or folders anywhere in the window, or upload them. Agents can publish here too, with the otterdrive CLI."
           actions={
-            <Button variant="accent" onClick={requestUpload}>
+            <Button
+              variant="accent"
+              disabled={folder.role === 'viewer'}
+              onClick={requestUpload}
+            >
               <UploadIcon /> Upload
             </Button>
           }
@@ -48,14 +52,14 @@ export function Overview({
       </div>
     )
   }
-  return <TeamOverview team={team} documents={active} />
+  return <FolderOverview folder={folder} documents={active} />
 }
 
-function TeamOverview({
-  team,
+function FolderOverview({
+  folder,
   documents,
 }: {
-  team: Team
+  folder: Folder
   documents: Artifact[]
 }) {
   const stats = useMemo(() => {
@@ -79,10 +83,13 @@ function TeamOverview({
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-[47rem] space-y-10 px-6 pt-14 pb-20">
         <header className="flex items-center gap-4 px-[17px]">
-          <TeamMark team={team} className="size-11 rounded-xl text-base" />
+          <FolderMark
+            folder={folder}
+            className="size-11 rounded-xl text-base"
+          />
           <div className="min-w-0">
             <h1 className="truncate text-[26px] leading-8 font-medium tracking-[-0.01em] text-foreground">
-              {team.name}
+              {folder.name}
             </h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
               Last change {formatRelative(recent[0]!.updatedAt)}
@@ -102,7 +109,11 @@ function TeamOverview({
           </h2>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             {recent.map((artifact) => (
-              <RecentCard key={artifact.id} artifact={artifact} team={team} />
+              <RecentCard
+                key={artifact.id}
+                artifact={artifact}
+                folder={folder}
+              />
             ))}
           </div>
         </section>
@@ -134,12 +145,18 @@ function Stat({ label, value }: { label: string; value: number }) {
   )
 }
 
-function RecentCard({ artifact, team }: { artifact: Artifact; team: Team }) {
+function RecentCard({
+  artifact,
+  folder,
+}: {
+  artifact: Artifact
+  folder: Folder
+}) {
   const kind = KIND_META[documentKind(artifact)].one
   return (
     <Link
-      to="/$organizationSlug/a/$slug"
-      params={{ organizationSlug: team.slug, slug: artifact.slug }}
+      to="/$folderSlug/a/$slug"
+      params={{ folderSlug: folder.slug, slug: artifact.slug }}
       search={(current) => ({ ...current, sheet: undefined })}
       className="group flex flex-col gap-1.5 rounded-xl border border-border/60 bg-card p-1.5 pb-2.5 outline-none transition-colors hover:border-input focus-visible:ring-2 focus-visible:ring-focus-ring"
     >
@@ -157,28 +174,28 @@ function RecentCard({ artifact, team }: { artifact: Artifact; team: Team }) {
   )
 }
 
-function NoTeam() {
-  const canCreate = useCanCreateTeams()
+function NoFolder() {
+  const canCreate = useCanCreateFolders()
   const [open, setOpen] = useState(false)
   return (
     <div className="flex h-full items-center justify-center">
       <EmptyState
         icon={UsersIcon}
-        title="You’re not in a team yet"
+        title="You’re not in a folder yet"
         description={
           canCreate
-            ? 'Documents live in teams. Create one to start.'
-            : 'Documents live in teams. Ask an administrator to invite you to one.'
+            ? 'Documents live in folders. Create one to start.'
+            : 'Documents live in folders. Ask an administrator to invite you to one.'
         }
         actions={
           canCreate ? (
             <Button variant="accent" onClick={() => setOpen(true)}>
-              New team
+              New folder
             </Button>
           ) : null
         }
       />
-      <NewTeamDialog open={open} onOpenChange={setOpen} />
+      <NewFolderDialog open={open} onOpenChange={setOpen} />
     </div>
   )
 }

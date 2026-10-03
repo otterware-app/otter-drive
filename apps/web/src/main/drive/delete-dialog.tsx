@@ -16,7 +16,7 @@ const DELETE_EVENT = 'otterdrive:delete-document'
 
 type DeleteRequest = {
   artifact: Artifact
-  teamId: string
+  folderId: string
   onDeleted?: (artifact: Artifact) => void
 }
 
@@ -28,7 +28,7 @@ export function DeleteDocumentDialogHost({
   onDeleted,
 }: {
   /** Runs after any deletion (the lists drop the document). */
-  onDeleted: (artifact: Artifact, teamId: string) => void
+  onDeleted: (artifact: Artifact, folderId: string) => void
 }) {
   const [request, setRequest] = useState<DeleteRequest | null>(null)
   const [confirmation, setConfirmation] = useState('')
@@ -52,14 +52,14 @@ export function DeleteDocumentDialogHost({
     try {
       await api<void>(
         `/api/v1/artifacts/${encodeURIComponent(request.artifact.id)}/permanent`,
-        { method: 'DELETE', organizationId: request.teamId },
+        { method: 'DELETE', folderId: request.folderId },
       )
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : String(reason)
       setError(message)
       throw reason
     }
-    onDeleted(request.artifact, request.teamId)
+    onDeleted(request.artifact, request.folderId)
     request.onDeleted?.(request.artifact)
     toast.success(`Deleted “${request.artifact.title}”`)
   }

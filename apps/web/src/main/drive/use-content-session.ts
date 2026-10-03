@@ -7,23 +7,23 @@ import { api } from '#/lib/api'
 const REFRESH_MS = 3 * 60 * 60 * 1_000
 
 export function useContentSession({
-  organizationId,
+  folderId,
   slug,
   version,
   enabled,
 }: {
-  organizationId: string
+  folderId: string
   slug: string
   version: number
   enabled: boolean
 }) {
   return useQuery({
-    queryKey: ['content-session', organizationId, slug, version],
+    queryKey: ['content-session', folderId, slug, version],
     queryFn: async ({ signal }) => {
       const preview = artifactPreviewResponseSchema.parse(
         await api<unknown>(
           `/api/v1/artifacts/${encodeURIComponent(slug)}/preview?version=${version}`,
-          { organizationId, signal },
+          { folderId, signal },
         ),
       ).data
       // Fetching follows the redirect and establishes the isolated origin's

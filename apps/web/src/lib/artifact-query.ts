@@ -5,28 +5,23 @@ import { api } from './api'
 import { readSessionCache, writeSessionCache } from './session-cache'
 
 export function artifactBootstrapQuery(
-  organizationId: string,
+  folderId: string,
   slug: string,
   version?: number,
 ) {
-  const storageKey = `otterdrive:artifact:${organizationId}:${slug}:${version ?? 'current'}`
+  const storageKey = `otterdrive:artifact:${folderId}:${slug}:${version ?? 'current'}`
   const stored = readSessionCache<ArtifactBootstrapResponse['data']>(
     storageKey,
     4 * 60_000,
   )
   return queryOptions({
-    queryKey: [
-      'artifact-bootstrap',
-      organizationId,
-      slug,
-      version ?? 'current',
-    ],
+    queryKey: ['artifact-bootstrap', folderId, slug, version ?? 'current'],
     queryFn: async () => {
       const query = version ? `?version=${version}` : ''
       const result = artifactBootstrapResponseSchema.parse(
         await api<unknown>(
           `/api/v1/artifacts/${encodeURIComponent(slug)}/bootstrap${query}`,
-          { organizationId },
+          { folderId },
         ),
       )
       return writeSessionCache(storageKey, result.data)

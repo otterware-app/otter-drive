@@ -5,7 +5,9 @@ export interface AuthenticatedActor {
   id: string
   name: string
   userId: string | null
-  organizationId: string
+  folderId: string
+  ownerUserId?: string
+  keyScopeId?: string | null
   roles: string[]
   permissions: Record<string, string[]>
 }

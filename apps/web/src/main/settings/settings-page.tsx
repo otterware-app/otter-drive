@@ -5,7 +5,7 @@ import { AgentsPane } from './agents-pane'
 import { AppearancePane } from './appearance-pane'
 import { MembersPane } from './members-pane'
 import { isSettingsPane } from './settings-nav'
-import { TeamPane } from './team-pane'
+import { FolderPane } from './folder-pane'
 
 /** The main pane while Settings is open: the pane the route names. */
 export function SettingsPage({ pane }: { pane: string }) {
@@ -20,8 +20,8 @@ export function SettingsPage({ pane }: { pane: string }) {
       </div>
     )
   switch (pane) {
-    case 'team':
-      return <TeamPane />
+    case 'folder':
+      return <FolderPane />
     case 'members':
       return <MembersPane />
     case 'agents':

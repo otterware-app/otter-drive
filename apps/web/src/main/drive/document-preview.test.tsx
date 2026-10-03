@@ -67,8 +67,8 @@ afterEach(() => {
 const textProps = {
   kind: 'markdown' as const,
   entryPath: 'docs/README.md',
-  organizationId: 'org-chris',
-  organizationSlug: 'chris',
+  folderId: 'org-chris',
+  folderSlug: 'chris',
   slug: 'roadmap',
   version: 2,
 }
@@ -88,8 +88,8 @@ describe('DocumentPreview', () => {
       <DocumentPreview
         kind="csv"
         entryPath="report.csv"
-        organizationId="org-chris"
-        organizationSlug="chris"
+        folderId="org-chris"
+        folderSlug="chris"
         slug="report"
         version={1}
       />,
@@ -101,7 +101,7 @@ describe('DocumentPreview', () => {
       {
         headers: {
           accept: '*/*',
-          'x-otterdrive-organization': 'org-chris',
+          'x-otterdrive-folder': 'org-chris',
         },
         signal: expect.any(AbortSignal),
       },
@@ -279,8 +279,8 @@ describe('DocumentPreview', () => {
       <DocumentPreview
         kind="workbook"
         entryPath="report.xlsx"
-        organizationId="org-chris"
-        organizationSlug="chris"
+        folderId="org-chris"
+        folderSlug="chris"
         onSheetChange={onSheetChange}
         slug="workbook"
         version={1}

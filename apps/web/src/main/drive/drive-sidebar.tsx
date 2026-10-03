@@ -1,8 +1,11 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ArchiveIcon,
   ClockIcon,
   FilesIcon,
+  FolderIcon,
+  FolderPlusIcon,
+  ChevronUpIcon,
   SearchIcon,
   UploadIcon,
 } from 'lucide-react'
@@ -16,7 +19,8 @@ import {
   SidebarRow,
   SidebarSection,
 } from '../sidebar-ui'
-import type { Team } from '../teams'
+import { driveForFolder, type Folder } from '../folders'
+import { NewFolderDialog } from './new-folder-dialog'
 import {
   DOCUMENT_KINDS,
   KIND_META,
@@ -26,20 +30,24 @@ import {
 } from './documents'
 
 /**
- * The team's sidebar (Otter Mail's mailbox page): its name, Upload (Otter
+ * The folder's sidebar (Otter Mail's mailbox page): its name, Upload (Otter
  * Mail's "New message"), Search, then the views and the kinds of document
- * the team has.
+ * the folder has.
  */
 export function DriveSidebar({
-  team,
+  folder,
+  folders,
+  onOpenFolder,
   documents,
   search,
   onNavigate,
   onUpload,
   onSearch,
 }: {
-  team: Team | null
-  /** The team's active documents, for the counts. */
+  folder: Folder | null
+  folders: Folder[]
+  onOpenFolder: (folder: Folder) => void
+  /** The folder's active documents, for the counts. */
   documents: Artifact[]
   search: DriveSearch
   /** Shows a view or kind in the list (and closes an open document). */
@@ -47,6 +55,10 @@ export function DriveSidebar({
   onUpload: () => void
   onSearch: () => void
 }) {
+  const [newOpen, setNewOpen] = useState(false)
+  const drive = driveForFolder(folders, folder)
+  const parent = folders.find((item) => item.id === folder?.parentId)
+  const children = folders.filter((item) => item.parentId === folder?.id)
   const counts = useMemo(() => {
     const now = Date.now()
     const byKind = new Map<string, number>()
@@ -68,14 +80,21 @@ export function DriveSidebar({
   return (
     <div className="flex h-full min-w-0 flex-col">
       <div aria-hidden className="h-(--workspace-topbar-height) shrink-0" />
-      <SidebarHeading>{team?.name ?? ' '}</SidebarHeading>
+      <SidebarHeading>{folder?.name ?? ' '}</SidebarHeading>
+      {parent ? (
+        <SidebarRow
+          icon={<ChevronUpIcon />}
+          title={parent.name}
+          onClick={() => onOpenFolder(parent)}
+        />
+      ) : null}
 
       <div className="flex shrink-0 flex-col gap-0.5 px-(--sidebar-content-inset)">
         <HintTooltip label="Upload" hint={shortcutLabel('document.upload')}>
           <button
             type="button"
             onClick={onUpload}
-            disabled={!team}
+            disabled={!folder || folder.role === 'viewer'}
             className={cn(
               SIDEBAR_ROW,
               'bg-sidebar-control-surface px-(--sidebar-row-content-inset) text-sidebar-foreground hover:bg-sidebar-row-hover disabled:opacity-64',
@@ -102,6 +121,25 @@ export function DriveSidebar({
         aria-label="Views"
         className="scroll-fade-y min-h-0 flex-1 overflow-y-auto px-(--sidebar-content-inset) pt-3 pb-8"
       >
+        <SidebarSection
+          title={drive?.kind === 'shared' ? 'Shared drive' : 'My Drive'}
+        >
+          {children.map((child) => (
+            <SidebarRow
+              key={child.id}
+              icon={<FolderIcon />}
+              title={child.name}
+              onClick={() => onOpenFolder(child)}
+            />
+          ))}
+          {folder?.role !== 'viewer' ? (
+            <SidebarRow
+              icon={<FolderPlusIcon />}
+              title="New folder"
+              onClick={() => setNewOpen(true)}
+            />
+          ) : null}
+        </SidebarSection>
         <div className="flex flex-col gap-0.5">
           <SidebarRow
             icon={<FilesIcon />}
@@ -142,6 +180,7 @@ export function DriveSidebar({
           </SidebarSection>
         ) : null}
       </nav>
+      <NewFolderDialog open={newOpen} onOpenChange={setNewOpen} />
     </div>
   )
 }

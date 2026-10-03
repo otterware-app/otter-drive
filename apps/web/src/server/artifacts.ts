@@ -25,12 +25,13 @@ import {
 } from './actor'
 import { signContentGrant, signThumbnailGrant } from './content'
 import { HttpError, json, parseJson } from './http'
+import { folderAccess } from './folders'
 import { generateThumbnail } from './thumbnails'
 import type { AuthenticatedActor, Env } from './types'
 
 interface ArtifactRow {
   id: string
-  organization_id: string
+  folder_id: string
   owner_user_id: string | null
   created_by_actor_type: 'user' | 'api_key'
   created_by_actor_id: string
@@ -88,7 +89,7 @@ interface FileRow {
 interface UploadRow {
   id: string
   artifact_id: string
-  organization_id: string
+  folder_id: string
   actor_type: 'user' | 'api_key'
   actor_id: string
   actor_name: string
@@ -116,12 +117,12 @@ function uploadManifest(upload: UploadRow): InternalUploadFile[] {
 }
 
 function canRead(row: ArtifactRow, actor: AuthenticatedActor): boolean {
-  if (row.organization_id !== actor.organizationId) return false
+  if (row.folder_id !== actor.folderId) return false
   return canReadWithKey(actor)
 }
 
 function canModify(row: ArtifactRow, actor: AuthenticatedActor): boolean {
-  if (row.organization_id !== actor.organizationId) return false
+  if (row.folder_id !== actor.folderId) return false
   if (row.state === 'draft') {
     return (
       row.created_by_actor_type === actor.type &&
@@ -179,12 +180,13 @@ function mapArtifactRecord(
   env: Env,
   row: ArtifactRow,
   currentVersion: ArtifactVersion | null,
-  organizationSlug: string,
+  folderSlug: string,
   thumbnailUrl?: string | null,
 ): Artifact {
   return {
     id: row.id,
-    organizationId: row.organization_id,
+    folderId: row.folder_id,
+    organizationId: row.folder_id,
     ownerUserId: row.owner_user_id,
     slug: row.slug,
     title: row.title,
@@ -194,7 +196,7 @@ function mapArtifactRecord(
     archivedAt: row.archived_at,
     currentVersion,
     versionCount: row.version_count,
-    url: new URL(`/${organizationSlug}/a/${row.slug}/`, env.APP_URL).toString(),
+    url: new URL(`/${folderSlug}/a/${row.slug}/`, env.APP_URL).toString(),
     ...(thumbnailUrl !== undefined ? { thumbnailUrl } : {}),
   }
 }
@@ -204,23 +206,15 @@ async function mapArtifact(env: Env, row: ArtifactRow): Promise<Artifact> {
     env,
     row,
     await versionById(env, row.current_version_id),
-    await organizationSlug(env, row.organization_id),
+    await folderSlug(env, row.folder_id),
   )
 }
 
-async function organizationSlug(
-  env: Env,
-  organizationId: string,
-): Promise<string> {
-  const row = await env.DB.prepare('SELECT slug FROM organization WHERE id = ?')
-    .bind(organizationId)
+async function folderSlug(env: Env, folderId: string): Promise<string> {
+  const row = await env.DB.prepare('SELECT slug FROM folder WHERE id = ?')
+    .bind(folderId)
     .first<{ slug: string }>()
-  if (!row)
-    throw new HttpError(
-      404,
-      'organization_not_found',
-      'Organization not found.',
-    )
+  if (!row) throw new HttpError(404, 'folder_not_found', 'Folder not found.')
   return row.slug
 }
 
@@ -250,9 +244,9 @@ async function artifactRow(
   options: { requireModify?: boolean; includeDraft?: boolean } = {},
 ): Promise<ArtifactRow> {
   const row = await env.DB.prepare(
-    'SELECT * FROM artifact WHERE organization_id = ? AND (id = ? OR slug = ?) LIMIT 1',
+    'SELECT * FROM artifact WHERE folder_id = ? AND (id = ? OR slug = ?) LIMIT 1',
   )
-    .bind(actor.organizationId, reference, reference)
+    .bind(actor.folderId, reference, reference)
     .first<ArtifactRow>()
   if (
     !row ||
@@ -270,16 +264,16 @@ async function audit(
   action: string,
   resourceId: string,
   metadata: unknown = {},
-  organizationId = actor.organizationId,
+  folderId = actor.folderId,
 ): Promise<void> {
   await env.DB.prepare(
     `INSERT INTO audit_event
-      (id, organization_id, actor_type, actor_id, actor_name, action, resource_type, resource_id, metadata_json, created_at)
+      (id, folder_id, actor_type, actor_id, actor_name, action, resource_type, resource_id, metadata_json, created_at)
      VALUES (?, ?, ?, ?, ?, ?, 'artifact', ?, ?, ?)`,
   )
     .bind(
       crypto.randomUUID(),
-      organizationId,
+      folderId,
       actor.type,
       actor.id,
       actor.name,
@@ -299,55 +293,42 @@ export async function moveArtifact(
 ): Promise<Response> {
   if (
     actor.type !== 'user' ||
-    !actor.roles.some((role) => ['owner', 'admin'].includes(role))
+    !actor.roles.some((role) => ['owner'].includes(role))
   ) {
     throw new HttpError(
       403,
       'forbidden',
-      'Only organization owners and admins can move documents.',
+      'Only drive owners can move documents.',
     )
   }
   const artifact = await artifactRow(env, actor, reference, {
     requireModify: true,
   })
   const input = moveArtifactInputSchema.parse(await parseJson(request))
-  if (input.organizationId === actor.organizationId) {
+  if (input.folderId === actor.folderId) {
     throw new HttpError(
       400,
-      'same_organization',
-      'The document is already in that organization.',
+      'same_folder',
+      'The document is already in that folder.',
     )
   }
-  const destination = await env.DB.prepare(
-    `SELECT m.role, o.slug
-       FROM member m
-       JOIN organization o ON o.id = m.organizationId
-      WHERE m.userId = ? AND m.organizationId = ?`,
-  )
-    .bind(actor.userId, input.organizationId)
-    .first<{ role: string; slug: string }>()
-  if (
-    !destination ||
-    !destination.role
-      .split(',')
-      .some((role) => ['owner', 'admin'].includes(role.trim()))
-  ) {
+  const destination = await folderAccess(env, actor.userId!, input.folderId)
+  if (destination.role !== 'owner')
     throw new HttpError(
       403,
       'destination_forbidden',
-      'You must be an owner or admin of the destination organization.',
+      'Only the owner can move documents between folders.',
     )
-  }
   const collision = await env.DB.prepare(
-    'SELECT id FROM artifact WHERE organization_id = ? AND slug = ? LIMIT 1',
+    'SELECT id FROM artifact WHERE folder_id = ? AND slug = ? LIMIT 1',
   )
-    .bind(input.organizationId, artifact.slug)
+    .bind(input.folderId, artifact.slug)
     .first<{ id: string }>()
   if (collision) {
     throw new HttpError(
       409,
       'slug_exists',
-      'That document slug already exists in the destination organization.',
+      'That document slug already exists in the destination folder.',
     )
   }
   const pending = await env.DB.prepare(
@@ -364,21 +345,27 @@ export async function moveArtifact(
   }
   const now = new Date().toISOString()
   const metadata = JSON.stringify({
-    fromOrganizationId: actor.organizationId,
-    toOrganizationId: input.organizationId,
+    fromFolderId: actor.folderId,
+    toFolderId: input.folderId,
   })
   await env.DB.batch([
     env.DB.prepare(
-      'UPDATE artifact SET organization_id = ?, owner_user_id = NULL, updated_at = ? WHERE id = ? AND organization_id = ?',
-    ).bind(input.organizationId, now, artifact.id, actor.organizationId),
-    ...[actor.organizationId, input.organizationId].map((organizationId) =>
+      'UPDATE artifact SET folder_id = ?, owner_user_id = ?, updated_at = ? WHERE id = ? AND folder_id = ?',
+    ).bind(
+      input.folderId,
+      destination.ownerUserId,
+      now,
+      artifact.id,
+      actor.folderId,
+    ),
+    ...[actor.folderId, input.folderId].map((folderId) =>
       env.DB.prepare(
         `INSERT INTO audit_event
-          (id, organization_id, actor_type, actor_id, actor_name, action, resource_type, resource_id, metadata_json, created_at)
+          (id, folder_id, actor_type, actor_id, actor_name, action, resource_type, resource_id, metadata_json, created_at)
          VALUES (?, ?, ?, ?, ?, 'artifact.moved', 'artifact', ?, ?, ?)`,
       ).bind(
         crypto.randomUUID(),
-        organizationId,
+        folderId,
         actor.type,
         actor.id,
         actor.name,
@@ -390,8 +377,9 @@ export async function moveArtifact(
   ])
   const destinationActor: AuthenticatedActor = {
     ...actor,
-    organizationId: input.organizationId,
-    roles: destination.role.split(',').map((role) => role.trim()),
+    folderId: input.folderId,
+    roles: [destination.role],
+    ownerUserId: destination.ownerUserId,
   }
   return showArtifact(env, destinationActor, artifact.id)
 }
@@ -408,8 +396,8 @@ export async function listArtifacts(
   )
   const archived = url.searchParams.get('archived')
   const cursor = url.searchParams.get('cursor')
-  const conditions = ['a.organization_id = ?', "a.state = 'published'"]
-  const bindings: unknown[] = [actor.organizationId]
+  const conditions = ['a.folder_id = ?', "a.state = 'published'"]
+  const bindings: unknown[] = [actor.folderId]
   if (archived === 'only') conditions.push('a.archived_at IS NOT NULL')
   else if (archived !== 'true') conditions.push('a.archived_at IS NULL')
   if (cursor) {
@@ -437,10 +425,7 @@ export async function listArtifacts(
     .all<ArtifactListRow>()
   const hasMore = result.results.length > limit
   const rows = result.results.slice(0, limit)
-  const activeOrganizationSlug = await organizationSlug(
-    env,
-    actor.organizationId,
-  )
+  const activeFolderSlug = await folderSlug(env, actor.folderId)
   const artifacts = await Promise.all(
     rows.map(async (row) => {
       const thumbnailUrl = row.cv_preview_r2_key
@@ -453,7 +438,7 @@ export async function listArtifacts(
         env,
         row,
         joinedCurrentVersion(row),
-        activeOrganizationSlug,
+        activeFolderSlug,
         thumbnailUrl,
       )
     }),
@@ -491,13 +476,13 @@ export async function createArtifact(
   try {
     await env.DB.prepare(
       `INSERT INTO artifact
-        (id, organization_id, owner_user_id, created_by_actor_type, created_by_actor_id, slug, title, description, state, created_at, updated_at)
+        (id, folder_id, owner_user_id, created_by_actor_type, created_by_actor_id, slug, title, description, state, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?)`,
     )
       .bind(
         id,
-        actor.organizationId,
-        actor.userId,
+        actor.folderId,
+        actor.ownerUserId ?? actor.userId,
         actor.type,
         actor.id,
         input.slug,
@@ -512,7 +497,7 @@ export async function createArtifact(
       throw new HttpError(
         409,
         'slug_exists',
-        'That document slug already exists in this organization.',
+        'That document slug already exists in this folder.',
       )
     }
     throw error
@@ -664,11 +649,11 @@ export async function permanentlyDeleteArtifact(
   await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO audit_event
-        (id, organization_id, actor_type, actor_id, actor_name, action, resource_type, resource_id, metadata_json, created_at)
+        (id, folder_id, actor_type, actor_id, actor_name, action, resource_type, resource_id, metadata_json, created_at)
        VALUES (?, ?, ?, ?, ?, 'artifact.permanently_deleted', 'artifact', ?, ?, ?)`,
     ).bind(
       crypto.randomUUID(),
-      actor.organizationId,
+      actor.folderId,
       actor.type,
       actor.id,
       actor.name,
@@ -877,6 +862,10 @@ export async function previewArtifact(
     throw new HttpError(404, 'file_not_found', 'Document entry file not found.')
   }
   const token = await signContentGrant(env, {
+    principal: {
+      userId: actor.userId!,
+      ...(actor.type === 'api_key' ? { keyId: actor.id } : {}),
+    },
     artifactId: artifact.id,
     versionId: version.id,
     entryPath: version.entry_path,
@@ -931,6 +920,10 @@ export async function bootstrapArtifact(
     versions.find((version) => version.id === artifact.current_version_id) ??
     null
   const token = await signContentGrant(env, {
+    principal: {
+      userId: actor.userId!,
+      ...(actor.type === 'api_key' ? { keyId: actor.id } : {}),
+    },
     artifactId: artifact.id,
     versionId: selected.id,
     entryPath: selected.entry_path,
@@ -942,7 +935,7 @@ export async function bootstrapArtifact(
           env,
           artifact,
           currentVersion,
-          await organizationSlug(env, artifact.organization_id),
+          await folderSlug(env, artifact.folder_id),
         ),
         versions,
         preview: {
@@ -1002,7 +995,7 @@ async function loadUpload(
     .first<UploadRow>()
   if (
     !row ||
-    row.organization_id !== actor.organizationId ||
+    row.folder_id !== actor.folderId ||
     row.actor_type !== actor.type ||
     row.actor_id !== actor.id
   ) {
@@ -1109,14 +1102,14 @@ export async function createUpload(
     }
     await env.DB.prepare(
       `INSERT INTO artifact_upload
-        (id, artifact_id, organization_id, actor_type, actor_id, actor_name, version_id, version_number,
+        (id, artifact_id, folder_id, actor_type, actor_id, actor_name, version_id, version_number,
          expected_current_version, label, entry_path, manifest_json, created_at, expires_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
       .bind(
         id,
         artifact.id,
-        actor.organizationId,
+        actor.folderId,
         actor.type,
         actor.id,
         actor.name,

@@ -6,8 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from '@/components/ui/toast'
 import { formatRelative } from '../drive/documents'
-import { useTeamRole } from '../team-role'
-import { useTeams } from '../teams'
 import {
   CopyField,
   SettingsGroup,
@@ -57,21 +55,21 @@ async function copy(value: string, message = 'Copied') {
 }
 
 export function AgentsPane() {
-  const { activeTeam: team } = useTeams()
-  // Owners revoke keys (the key library asks for apiKey:delete, which only
-  // the team's creator role has); owners and admins create them.
-  const { canManage, isOwner } = useTeamRole(team?.id, Boolean(team))
+  const user = authClient.useSession().data?.user
+  const folder = user
+  const canManage = true,
+    isOwner = true
   const queryClient = useQueryClient()
   const [name, setName] = useState('Agent')
   const [created, setCreated] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
 
   const keys = useQuery({
-    enabled: Boolean(team),
-    queryKey: ['api-keys', team?.id],
+    enabled: Boolean(folder),
+    queryKey: ['api-keys', folder?.id],
     queryFn: async () => {
       const result = await authClient.apiKey.list({
-        query: { organizationId: team!.id, configId: 'organization' },
+        query: { configId: 'user' },
       })
       if (result.error) throw new Error(result.error.message)
       return ((result.data as { apiKeys?: ApiKey[] } | null)?.apiKeys ??
@@ -81,11 +79,10 @@ export function AgentsPane() {
 
   async function create(event: React.FormEvent) {
     event.preventDefault()
-    if (!team) return
+    if (!folder) return
     setCreating(true)
     const result = await authClient.apiKey.create({
-      configId: 'organization',
-      organizationId: team.id,
+      configId: 'user',
       name,
       prefix: 'otw_',
     })
@@ -97,13 +94,13 @@ export function AgentsPane() {
       return
     }
     setCreated(result.data.key)
-    void queryClient.invalidateQueries({ queryKey: ['api-keys', team.id] })
+    void queryClient.invalidateQueries({ queryKey: ['api-keys', folder.id] })
   }
 
   async function revoke(key: ApiKey) {
     const result = await authClient.apiKey.delete({
       keyId: key.id,
-      configId: 'organization',
+      configId: 'user',
     })
     if (result.error) {
       toast.error('Could not revoke the key', {
@@ -112,13 +109,13 @@ export function AgentsPane() {
       return
     }
     toast.success(`Revoked ${key.name ?? 'the key'}`)
-    void queryClient.invalidateQueries({ queryKey: ['api-keys', team?.id] })
+    void queryClient.invalidateQueries({ queryKey: ['api-keys', folder?.id] })
   }
 
   return (
     <SettingsPageContainer
       title="Agents"
-      description="Agents publish and edit documents with the otterdrive CLI, as you or with a team key."
+      description="Agents publish and edit documents with the otterdrive CLI, as you or with an API key."
     >
       <SettingsSection title="Command line">
         {commands(location.origin).map((item) => (
@@ -137,10 +134,10 @@ export function AgentsPane() {
 
       <section>
         <SettingsSectionHeader
-          title="Team keys"
+          title="Your API keys"
           description={
-            team
-              ? `For agents that work in ${team.name} without signing in as you.`
+            folder
+              ? `For agents acting as ${folder.name}. Existing migrated keys keep their original drive scope.`
               : undefined
           }
         />
@@ -148,7 +145,7 @@ export function AgentsPane() {
           {canManage ? (
             <SettingsRow
               title="New key"
-              description="It can read, upload and edit documents in this team."
+              description="It can read, upload and edit documents you can access."
               control={
                 <form className="flex items-center gap-2" onSubmit={create}>
                   <Input

@@ -10,7 +10,7 @@ import {
 import { SidebarHeading, SidebarRow } from '../sidebar-ui'
 
 export const SETTINGS_PANES = [
-  'team',
+  'folder',
   'members',
   'agents',
   'appearance',
@@ -22,8 +22,8 @@ export const SETTINGS_PANE_META: Record<
   SettingsPane,
   { label: string; icon: ComponentType<{ className?: string }> }
 > = {
-  team: { label: 'Team', icon: Settings2Icon },
-  members: { label: 'Members', icon: UsersIcon },
+  folder: { label: 'Drives and folders', icon: Settings2Icon },
+  members: { label: 'Shared drive access', icon: UsersIcon },
   agents: { label: 'Agents', icon: BotIcon },
   appearance: { label: 'Appearance', icon: PaletteIcon },
   account: { label: 'Account', icon: CircleUserRoundIcon },

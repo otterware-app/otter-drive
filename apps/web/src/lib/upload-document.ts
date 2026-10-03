@@ -108,14 +108,14 @@ export function titleFromName(name: string): string {
  * `retryTakenSlug` is set, a taken slug is retried once with a short suffix.
  */
 export async function uploadDocument({
-  organizationId,
+  folderId,
   files,
   title,
   slug,
   retryTakenSlug = false,
   onStatus,
 }: {
-  organizationId: string
+  folderId: string
   files: PickedFile[]
   title: string
   slug: string
@@ -139,7 +139,7 @@ export async function uploadDocument({
       artifactResponseSchema.parse(
         await api<unknown>('/api/v1/artifacts', {
           method: 'POST',
-          organizationId,
+          folderId,
           body: JSON.stringify({
             slug: documentSlug,
             title,
@@ -165,7 +165,7 @@ export async function uploadDocument({
         `/api/v1/artifacts/${encodeURIComponent(created.id)}/uploads`,
         {
           method: 'POST',
-          organizationId,
+          folderId,
           body: JSON.stringify({
             label: 'Initial version',
             entryPath,
@@ -185,7 +185,7 @@ export async function uploadDocument({
       const headers = {
         'content-type': meta.contentType,
         'x-content-sha256': meta.sha256,
-        'x-otterdrive-organization': organizationId,
+        'x-otterdrive-folder': folderId,
       }
       if (remote.multipart) {
         const partSize = remote.partSize ?? MULTIPART_PART_SIZE
@@ -208,7 +208,7 @@ export async function uploadDocument({
         }
         await api<unknown>(`${remote.uploadUrl}/complete`, {
           method: 'POST',
-          organizationId,
+          folderId,
           body: JSON.stringify({ parts }),
         })
       } else {
@@ -223,14 +223,14 @@ export async function uploadDocument({
     return completeUploadResponseSchema.parse(
       await api<unknown>(
         `/api/v1/uploads/${encodeURIComponent(session.id)}/complete`,
-        { method: 'POST', organizationId },
+        { method: 'POST', folderId },
       ),
     ).data.artifact
   } catch (reason) {
     if (artifactId) {
       await api<void>(
         `/api/v1/artifacts/${encodeURIComponent(artifactId)}/draft`,
-        { method: 'DELETE', organizationId },
+        { method: 'DELETE', folderId },
       ).catch(() => undefined)
     }
     throw reason

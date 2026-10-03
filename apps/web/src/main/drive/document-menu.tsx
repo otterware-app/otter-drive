@@ -15,11 +15,11 @@ import {
   DropdownMenuSub,
 } from '@/components/ui/menu'
 import { toast } from '@/components/ui/toast'
-import { useTeamRole } from '../team-role'
-import { useTeams, type Team } from '../teams'
+import { useFolderRole } from '../folder-role'
+import { useFolders, type Folder } from '../folders'
 import { requestDeleteDocument } from './delete-dialog'
 import { useDocumentActions } from './documents'
-import { TeamMark } from './team-mark'
+import { FolderMark } from './folder-mark'
 
 /**
  * What you can do to a document, wherever it shows (a row's menus, the
@@ -50,14 +50,14 @@ export function copyAgentPrompt(artifact: Artifact) {
 
 export async function downloadDocument(
   artifact: Artifact,
-  teamId: string,
+  folderId: string,
   version?: number,
 ) {
   const query = version ? `?version=${version}` : ''
   try {
     const response = await fetch(
       `/api/v1/artifacts/${encodeURIComponent(artifact.id)}/download${query}`,
-      { headers: { 'x-otterdrive-organization': teamId } },
+      { headers: { 'x-otterdrive-folder': folderId } },
     )
     if (!response.ok) throw new Error(`Download failed (${response.status}).`)
     const disposition = response.headers.get('content-disposition')
@@ -79,8 +79,8 @@ export async function downloadDocument(
 }
 
 /** Archive or restore, with Undo on the toast (Otter Mail's). */
-export function useArchiveDocument(teamId: string | undefined) {
-  const { setArchived } = useDocumentActions(teamId)
+export function useArchiveDocument(folderId: string | undefined) {
+  const { setArchived } = useDocumentActions(folderId)
   return async (artifact: Artifact, archived: boolean) => {
     try {
       const result = await setArchived(artifact, archived)
@@ -105,28 +105,30 @@ export function useArchiveDocument(teamId: string | undefined) {
 
 export function DocumentMenuItems({
   artifact,
-  team,
+  folder,
   href,
   version,
   onMoved,
   onDeleted,
 }: {
   artifact: Artifact
-  team: Team
+  folder: Folder
   /** Offers "Open in new tab" (rows, not the viewer). */
   href?: string
   /** The version showing, for Download. */
   version?: number
-  onMoved?: (artifact: Artifact, destination: Team) => void
+  onMoved?: (artifact: Artifact, destination: Folder) => void
   onDeleted?: (artifact: Artifact) => void
 }) {
-  const { teams } = useTeams()
-  const { canManage, canEdit, isOwner } = useTeamRole(team.id)
-  const { move } = useDocumentActions(team.id)
-  const archive = useArchiveDocument(team.id)
-  const destinations = teams.filter((item) => item.id !== team.id)
+  const { folders } = useFolders()
+  const { canManage, canEdit, isOwner } = useFolderRole(folder.id)
+  const { move } = useDocumentActions(folder.id)
+  const archive = useArchiveDocument(folder.id)
+  const destinations = folders.filter(
+    (item) => item.id !== folder.id && item.role === 'owner',
+  )
 
-  async function moveTo(destination: Team) {
+  async function moveTo(destination: Folder) {
     try {
       const moved = await move(artifact, destination.id)
       toast.success(`Moved “${artifact.title}” to ${destination.name}`)
@@ -162,7 +164,7 @@ export function DocumentMenuItems({
       </DropdownMenuItem>
       <DropdownMenuItem
         icon={<DownloadIcon />}
-        onClick={() => void downloadDocument(artifact, team.id, version)}
+        onClick={() => void downloadDocument(artifact, folder.id, version)}
       >
         Download
       </DropdownMenuItem>
@@ -172,7 +174,10 @@ export function DocumentMenuItems({
             <DropdownMenuItem
               key={destination.id}
               icon={
-                <TeamMark team={destination} className="size-4 text-[7px]" />
+                <FolderMark
+                  folder={destination}
+                  className="size-4 text-[7px]"
+                />
               }
               onClick={() => void moveTo(destination)}
             >
@@ -208,7 +213,7 @@ export function DocumentMenuItems({
           onClick={() =>
             requestDeleteDocument({
               artifact,
-              teamId: team.id,
+              folderId: folder.id,
               ...(onDeleted ? { onDeleted } : {}),
             })
           }

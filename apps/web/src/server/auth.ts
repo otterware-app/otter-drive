@@ -1,39 +1,21 @@
 import { apiKey } from '@better-auth/api-key'
 import { betterAuth } from 'better-auth'
+import { APIError } from 'better-auth/api'
 import {
   admin as adminPlugin,
   bearer,
   deviceAuthorization,
-  organization,
+  genericOAuth,
 } from 'better-auth/plugins'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
-import { waitUntil } from 'cloudflare:workers'
 import { authorizeNewUser, normalizeEmail } from './auth-policy'
 import { isPreviewHost } from './host-policy'
-import { sendPasswordResetEmail } from './email'
 import type { Env } from './types'
-import {
-  accessControl,
-  adminRole,
-  editorRole,
-  ownerRole,
-  viewerRole,
-} from './permissions'
 
 export function createAuth(env: Env) {
-  const googleEnabled = Boolean(
-    env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET,
-  )
-  const socialProviders =
-    env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
-      ? {
-          google: {
-            clientId: env.GOOGLE_CLIENT_ID,
-            clientSecret: env.GOOGLE_CLIENT_SECRET,
-          },
-        }
-      : {}
-
+  // Bind each callback to its verified token, even when a user signs in on
+  // two browsers concurrently and the stored provider token gets replaced.
+  const otterSessions = new WeakMap<object, { sid: string; sub: string }>()
   return betterAuth({
     appName: 'Otter Drive',
     baseURL: env.APP_URL,
@@ -49,41 +31,89 @@ export function createAuth(env: Env) {
     },
     session: {
       expiresIn: 60 * 60 * 24 * 90,
-      cookieCache: {
-        enabled: true,
-        maxAge: 60,
-        strategy: 'compact',
+      additionalFields: {
+        otterSessionId: { type: 'string', required: false, input: false },
       },
     },
-    socialProviders,
-    emailAndPassword: {
-      enabled: !googleEnabled,
-      disableSignUp: googleEnabled,
-      revokeSessionsOnPasswordReset: true,
-      sendResetPassword: async ({ user, url }) => {
-        waitUntil(
-          sendPasswordResetEmail(env, user.email, url).catch((error) => {
-            console.error('Could not send a password reset email.', error)
-          }),
+    emailAndPassword: { enabled: false },
+    // Existing users are linked by the migration, never by an email match.
+    account: { accountLinking: { enabled: false } },
+    user: {
+      validateUserInfo: async ({ user, source }, context) => {
+        if (!user.emailVerified)
+          return {
+            error: 'email_not_verified',
+            errorDescription: 'Verify your Google email before signing in.',
+          }
+        const subject = source.oauth?.profile?.sub
+        const sid = source.oauth?.profile?.sid
+        if (
+          source.oauth?.providerId !== 'otter' ||
+          typeof subject !== 'string' ||
+          typeof sid !== 'string'
         )
+          return {
+            error: 'invalid_identity',
+            errorDescription: 'Sign in with your Otter account.',
+          }
+        const deleted = await env.DB.prepare(
+          'SELECT subject FROM otter_identity_deleted WHERE subject = ?',
+        )
+          .bind(subject)
+          .first()
+        if (deleted)
+          return {
+            error: 'account_deleted',
+            errorDescription: 'This Otter account has been deleted.',
+          }
+        otterSessions.set(context.context, { sid, sub: subject })
       },
     },
     databaseHooks: {
-      user: {
+      session: {
         create: {
-          before: async (user) => ({
+          after: async (session) => {
+            await env.DB.prepare(
+              `UPDATE drive_member SET user_id = ? WHERE user_id IS NULL AND email = (SELECT lower(email) FROM user WHERE id = ? AND emailVerified = 1)`,
+            )
+              .bind(session.userId, session.userId)
+              .run()
+          },
+          before: async (session, context) => ({
             data: {
-              ...user,
-              email: normalizeEmail(user.email),
-              role: await authorizeNewUser(env, user.email),
+              ...session,
+              ...(context && otterSessions.has(context.context)
+                ? { otterSessionId: otterSessions.get(context.context)?.sid }
+                : {}),
             },
           }),
+        },
+      },
+      user: {
+        create: {
+          before: async (user, context) => {
+            const identity = context
+              ? otterSessions.get(context.context)
+              : undefined
+            if (!identity)
+              throw new APIError('FORBIDDEN', {
+                message: 'Create your account with Otter sign-in.',
+              })
+            return {
+              data: {
+                ...user,
+                id: identity.sub,
+                email: normalizeEmail(user.email),
+                role: await authorizeNewUser(env, user.email),
+              },
+            }
+          },
         },
       },
     },
     advanced: {
       cookiePrefix: 'otterdrive',
-      database: { generateId: 'uuid' },
+      database: { generateId: () => crypto.randomUUID() },
       defaultCookieAttributes: {
         httpOnly: true,
         sameSite: 'lax',
@@ -91,19 +121,23 @@ export function createAuth(env: Env) {
       },
     },
     plugins: [
-      adminPlugin({ defaultRole: 'user', adminRoles: ['admin'] }),
-      organization({
-        ac: accessControl,
-        roles: {
-          owner: ownerRole,
-          admin: adminRole,
-          editor: editorRole,
-          viewer: viewerRole,
-        },
-        creatorRole: 'owner',
-        allowUserToCreateOrganization: (user) => user.role === 'admin',
-        teams: { enabled: false },
+      genericOAuth({
+        config: [
+          {
+            providerId: 'otter',
+            name: 'Otter',
+            clientId: 'otter-drive',
+            discoveryUrl: `${env.OTTER_AUTH_URL}/.well-known/openid-configuration`,
+            requireIdTokenVerification: true,
+            tokenEndpointAuth: { method: 'none' },
+            scopes: ['openid', 'profile', 'email'],
+            pkce: true,
+            // Drive's Sign out button only ends the Drive session.
+            disableProviderLogout: true,
+          },
+        ],
       }),
+      adminPlugin({ defaultRole: 'user', adminRoles: ['admin'] }),
       deviceAuthorization({
         verificationUri: '/device',
         validateClient: (clientId) =>
@@ -111,8 +145,8 @@ export function createAuth(env: Env) {
       }),
       bearer(),
       apiKey({
-        configId: 'organization',
-        references: 'organization',
+        configId: 'user',
+        references: 'user',
         defaultPrefix: 'otw_',
         requireName: true,
         apiKeyHeaders: ['x-api-key'],

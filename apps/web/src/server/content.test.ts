@@ -11,6 +11,7 @@ import type { Env } from './types'
 function testEnv(): Env {
   return {
     APP_URL: 'http://localhost:3000',
+    OTTER_AUTH_URL: 'http://localhost:8787/v1/auth',
     CONTENT_URL: 'http://localhost:3000',
     ADMIN_EMAIL: 'chris.kafrouni@gmail.com',
     BETTER_AUTH_SECRET: 'auth-secret-at-least-thirty-two-characters',
@@ -28,6 +29,7 @@ describe('content grants', () => {
   it('creates a scoped content session with a host-only cookie', async () => {
     const env = testEnv()
     const token = await signContentGrant(env, {
+      principal: { service: true },
       artifactId: 'artifact-1',
       versionId: 'version-1',
       entryPath: 'index.html',
@@ -48,9 +50,10 @@ describe('content grants', () => {
     expect(response.headers.get('set-cookie')).not.toContain('Domain=')
   })
 
-  it('keeps the content session open longer than the URL grant', async () => {
+  it('limits internal thumbnail renderer sessions to five minutes', async () => {
     const env = testEnv()
     const token = await signContentGrant(env, {
+      principal: { service: true },
       artifactId: 'artifact-1',
       versionId: 'version-1',
       entryPath: 'demo.webm',
@@ -62,7 +65,7 @@ describe('content grants', () => {
     )
     const cookie = response.headers.get('set-cookie') ?? ''
 
-    expect(cookie).toContain('Max-Age=14400')
+    expect(cookie).toContain('Max-Age=300')
     expect(cookie).not.toContain(`otw_content=${token};`)
   })
 
@@ -133,6 +136,7 @@ describe('content ranges', () => {
       },
     } as unknown as R2Bucket
     const token = await signContentGrant(env, {
+      principal: { service: true },
       artifactId: 'artifact-1',
       versionId: 'version-1',
       entryPath: 'demo.webm',

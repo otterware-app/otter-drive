@@ -11,7 +11,7 @@ const LINES = [
   'Q3 board update: revenue grew 18% quarter over quarter, driven by the enterprise plan and two new regions.',
   'Onboarding checklist for new engineers: laptop, accounts, the architecture tour, and a first small fix.',
   'Launch plan v4: the waitlist opens on Monday, press goes out Tuesday at 9:00, and the changelog ships with it.',
-  'Pricing research: teams under ten seats prefer monthly billing; larger teams ask for annual invoices.',
+  'Pricing research: folders under ten seats prefer monthly billing; larger folders ask for annual invoices.',
   'Design review notes: tighten the empty states, use one icon weight, and keep the sidebar quiet.',
   'Hiring scorecard, senior backend engineer: strong on distributed systems, clear writer, asked good questions.',
   'Incident report: p95 latency in eu-west rose for 42 minutes after a cache node restarted without its warmup.',

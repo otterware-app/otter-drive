@@ -24,7 +24,7 @@ import {
 import { HintTooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { TitleBand } from '../top-bar'
-import type { Team } from '../teams'
+import type { Folder } from '../folders'
 import { ContentLoading } from './content-loading'
 import { DocumentMenuItems, copyLink, downloadDocument } from './document-menu'
 import { formatRelative } from './documents'
@@ -41,7 +41,7 @@ const DocumentPreview = lazy(() =>
  * document fills the rest.
  */
 export function DocumentViewer({
-  team,
+  folder,
   slug,
   version,
   sheet,
@@ -51,7 +51,7 @@ export function DocumentViewer({
   onToggleExpanded,
   roundedLeft,
 }: {
-  team: Team
+  folder: Folder
   slug: string
   version?: number | undefined
   sheet?: string | undefined
@@ -68,7 +68,7 @@ export function DocumentViewer({
   const [editorActions, setEditorActions] = useState<HTMLDivElement | null>(
     null,
   )
-  const bootstrap = useQuery(artifactBootstrapQuery(team.id, slug, version))
+  const bootstrap = useQuery(artifactBootstrapQuery(folder.id, slug, version))
   const artifact = bootstrap.data?.artifact ?? null
   const versions = bootstrap.data?.versions ?? []
   const preview = bootstrap.data?.preview ?? null
@@ -89,14 +89,14 @@ export function DocumentViewer({
     void navigate(
       number === latest
         ? {
-            to: '/$organizationSlug/a/$slug',
-            params: { organizationSlug: team.slug, slug },
+            to: '/$folderSlug/a/$slug',
+            params: { folderSlug: folder.slug, slug },
             search: (current) => ({ ...current, sheet }),
           }
         : {
-            to: '/$organizationSlug/a/$slug/$version',
+            to: '/$folderSlug/a/$slug/$version',
             params: {
-              organizationSlug: team.slug,
+              folderSlug: folder.slug,
               slug,
               version: `v${number}`,
             },
@@ -193,7 +193,7 @@ export function DocumentViewer({
               <IconButton
                 label={`Download ${artifact.title}`}
                 onClick={() =>
-                  void downloadDocument(artifact, team.id, selected?.number)
+                  void downloadDocument(artifact, folder.id, selected?.number)
                 }
               >
                 <DownloadIcon className="size-4" />
@@ -210,13 +210,13 @@ export function DocumentViewer({
               <DropdownMenuContent align="end" className="min-w-56">
                 <DocumentMenuItems
                   artifact={artifact}
-                  team={team}
+                  folder={folder}
                   {...(selected ? { version: selected.number } : {})}
                   onMoved={(moved, destination) =>
                     void navigate({
-                      to: '/$organizationSlug/a/$slug',
+                      to: '/$folderSlug/a/$slug',
                       params: {
-                        organizationSlug: destination.slug,
+                        folderSlug: destination.slug,
                         slug: moved.slug,
                       },
                     })
@@ -282,13 +282,14 @@ export function DocumentViewer({
           ) : kind !== 'frame' && kind !== 'video' ? (
             <Suspense fallback={<ContentLoading />}>
               <DocumentPreview
+                readOnly={folder.role === 'viewer'}
                 actionsContainer={editorActions}
                 kind={kind}
                 entryPath={selected.entryPath}
                 expectedCurrentVersion={artifact.versionCount}
                 onSheetChange={onSheetChange}
-                organizationId={team.id}
-                organizationSlug={team.slug}
+                folderId={folder.id}
+                folderSlug={folder.slug}
                 selectedSheet={sheet}
                 slug={slug}
                 version={selected.number}

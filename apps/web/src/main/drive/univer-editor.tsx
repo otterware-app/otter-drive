@@ -28,12 +28,13 @@ import '@univerjs/preset-docs-core/lib/index.css'
 type GridValue = unknown
 
 type EditorProps = {
+  readOnly?: boolean | undefined
   actionsContainer?: HTMLDivElement | null | undefined
   entryPath: string
   expectedCurrentVersion: number
   version: number
-  organizationId: string
-  organizationSlug: string
+  folderId: string
+  folderSlug: string
   onSheetChange?: ((sheet: string | undefined) => void) | undefined
   onPreview?: (() => void) | undefined
   selectedSheet?: string | undefined
@@ -266,6 +267,7 @@ export function UniverEditor(props: EditorProps) {
         const workbook = univerAPI.createWorkbook(
           workbookData(props.entryPath, props.sheets ?? []),
         )
+        if (props.readOnly) workbook.setEditable(false)
         if (props.selectedSheet)
           workbook.getSheetByName(props.selectedSheet)?.activate()
         const sheetEvent = univerAPI.addEvent(
@@ -340,6 +342,7 @@ export function UniverEditor(props: EditorProps) {
     }
   }, [
     props.entryPath,
+    props.readOnly,
     props.kind,
     props.kind === 'spreadsheet' ? props.sheets : null,
     props.kind === 'document' ? props.text : null,
@@ -347,7 +350,7 @@ export function UniverEditor(props: EditorProps) {
   ])
 
   async function save() {
-    if (!handle.current) return
+    if (!handle.current || props.readOnly) return
     setSaving(true)
     try {
       const blob = await handle.current.exportFile()
@@ -356,26 +359,26 @@ export function UniverEditor(props: EditorProps) {
         baseVersion: props.version,
         entryPath: props.entryPath,
         expectedCurrentVersion: props.expectedCurrentVersion,
-        organizationId: props.organizationId,
+        folderId: props.folderId,
         slug: props.slug,
       })
       removeSessionCachePrefix(
-        `otterdrive:artifact:${props.organizationId}:${props.slug}`,
+        `otterdrive:artifact:${props.folderId}:${props.slug}`,
       )
-      removeSessionCachePrefix(`otterdrive:artifacts:${props.organizationId}:`)
+      removeSessionCachePrefix(`otterdrive:artifacts:${props.folderId}:`)
       dirtyRef.current = false
       setDirty(false)
       await queryClient.invalidateQueries({
-        queryKey: ['artifact-bootstrap', props.organizationId, props.slug],
+        queryKey: ['artifact-bootstrap', props.folderId, props.slug],
       })
       void queryClient.invalidateQueries({
-        queryKey: ['artifacts', props.organizationId],
+        queryKey: ['artifacts', props.folderId],
       })
       toast.success(`Saved version ${nextVersion}`)
       await navigate({
-        to: '/$organizationSlug/a/$slug/$version',
+        to: '/$folderSlug/a/$slug/$version',
         params: {
-          organizationSlug: props.organizationSlug,
+          folderSlug: props.folderSlug,
           slug: props.slug,
           version: `v${nextVersion}`,
         },
@@ -392,7 +395,7 @@ export function UniverEditor(props: EditorProps) {
 
   // Edits become a new immutable version; the save sits in the viewer's
   // title band, next to the document's own actions.
-  const actions = (
+  const actions = props.readOnly ? null : (
     <div className="flex items-center gap-2">
       <span className="hidden text-xs text-muted-foreground lg:inline">
         {dirty ? 'Unsaved changes' : 'No changes'}

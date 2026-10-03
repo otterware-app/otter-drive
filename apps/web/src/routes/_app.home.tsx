@@ -6,15 +6,15 @@ import { TitleBand } from '#/main/top-bar'
 export const Route = createFileRoute('/_app/home')({ component: HomeRoute })
 
 function HomeRoute() {
-  const { team, documents, documentsLoading, noTeam } = useDrive()
+  const { folder, documents, documentsLoading, noFolder } = useDrive()
   return (
     <>
       <TitleBand />
       <Overview
-        team={team}
+        folder={folder}
         documents={documents}
         loading={documentsLoading}
-        noTeam={noTeam}
+        noFolder={noFolder}
       />
     </>
   )

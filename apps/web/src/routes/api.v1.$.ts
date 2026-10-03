@@ -1,5 +1,13 @@
 import { env } from 'cloudflare:workers'
 import { createFileRoute } from '@tanstack/react-router'
+import {
+  createFolder,
+  listFolders,
+  updateFolder,
+  deleteFolder,
+  driveMembers,
+  transferDrive,
+} from '#/server/folders'
 import { authenticate } from '#/server/actor'
 import {
   archiveArtifact,
@@ -45,19 +53,41 @@ async function route(request: Request): Promise<Response> {
     .map(decodeURIComponent)
 
   if (segments[0] === 'auth-config' && request.method === 'GET') {
-    const googleEnabled = Boolean(
-      env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET,
-    )
     return json({
       data: {
-        googleEnabled,
-        passwordEnabled: !googleEnabled,
+        otterEnabled: true,
+        googleEnabled: false,
+        passwordEnabled: false,
       },
     })
   }
 
+  if (
+    !['GET', 'HEAD'].includes(request.method) &&
+    request.headers.has('cookie') &&
+    request.headers.get('origin') !== new URL(env.APP_URL).origin
+  )
+    throw new HttpError(
+      403,
+      'invalid_origin',
+      'Use the Drive app to make this request.',
+    )
   const auth = createAuth(env)
   const actor = await authenticate(request, env, auth)
+
+  if (segments[0] === 'folders') {
+    const id = segments[1]
+    if (!id && request.method === 'GET') return listFolders(env, actor)
+    if (!id && request.method === 'POST')
+      return createFolder(request, env, actor)
+    if (id && segments[2] === 'owner' && request.method === 'POST')
+      return transferDrive(request, env, actor, id)
+    if (id && segments[2] === 'members')
+      return driveMembers(request, env, actor, id, segments[3])
+    if (id && request.method === 'PATCH')
+      return updateFolder(request, env, actor, id)
+    if (id && request.method === 'DELETE') return deleteFolder(env, actor, id)
+  }
 
   if (segments[0] === 'me' && request.method === 'GET') {
     return json({
@@ -68,7 +98,8 @@ async function route(request: Request): Promise<Response> {
           name: actor.name,
         },
         userId: actor.userId,
-        organizationId: actor.organizationId,
+        folderId: actor.folderId,
+        organizationId: actor.folderId,
         roles: actor.roles,
         permissions: actor.permissions,
       },
