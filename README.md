@@ -201,6 +201,12 @@ also ends its associated Drive browser session through signed OIDC back-channel 
 CLI sessions remain independent; shared account deletion ends those too.
 
 For local sign-in, use a local identity service and set `OTTER_AUTH_URL` in `.dev.vars`.
+Set `MAIL_AUTH_URL` and `MAIL_URL` to the local relay and Mail website too when testing browser logout.
+The login page automatically reuses an existing Accounts browser login. **Sign out of Otter**
+in either Mail or Drive ends both app sessions and the Accounts session in this browser,
+including sessions preserved from before the migration. Exact-origin POST forms visit each
+cookie owner; a failed step stops the flow. Other browsers, native devices, CLI sessions and
+API keys remain signed in.
 Register the local callback in its local OAuth client. Do not add localhost or wildcard callbacks
 to the production client. `src/server/identity.test.ts` tests the real auth library and migrations
 against SQLite and a local mock OIDC issuer, including device login and API keys.

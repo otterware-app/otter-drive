@@ -27,7 +27,8 @@ export async function browserAuth(
     return new Response('Start sign-out from Otter.', { status: 403 })
   const headers = new Headers({
     'cache-control': 'no-store',
-    'referrer-policy': 'no-referrer',
+    // no-referrer would make the next form POST's Origin null.
+    'referrer-policy': 'strict-origin',
   })
   if (start) {
     const nonce = crypto.randomUUID()

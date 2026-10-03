@@ -102,7 +102,9 @@ describe('FolderRail', () => {
     expect(
       await screen.findByRole('menuitem', { name: 'Settings' }),
     ).toBeTruthy()
-    expect(screen.getByRole('menuitem', { name: 'Sign out' })).toBeTruthy()
+    expect(
+      screen.getByRole('menuitem', { name: 'Sign out of Otter' }),
+    ).toBeTruthy()
     expect(screen.getByText('chris@example.com')).toBeTruthy()
   })
 })

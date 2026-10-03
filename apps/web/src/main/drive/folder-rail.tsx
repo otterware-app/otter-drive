@@ -34,9 +34,11 @@ const RAIL_BUTTON =
 const RAIL_BUTTON_SELECTED = 'bg-sidebar-row-selected text-sidebar-foreground'
 
 export function signOut() {
-  void authClient.signOut({
-    fetchOptions: { onSuccess: () => location.assign('/login') },
-  })
+  const form = document.createElement('form')
+  form.method = 'post'
+  form.action = '/api/auth/browser-sign-out/start'
+  document.body.appendChild(form)
+  form.submit()
 }
 
 export function useCanCreateFolders(): boolean {
@@ -221,7 +223,7 @@ function AccountMenu({ active }: { active: boolean }) {
         <AppearanceSubmenu />
         <DropdownMenuSeparator />
         <DropdownMenuItem icon={<LogOutIcon />} onClick={signOut}>
-          Sign out
+          Sign out of Otter
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

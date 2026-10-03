@@ -132,7 +132,8 @@ export function createAuth(env: Env) {
             tokenEndpointAuth: { method: 'none' },
             scopes: ['openid', 'profile', 'email'],
             pkce: true,
-            // Drive's Sign out button only ends the Drive session.
+            // The browser logout coordinator visits all three cookie owners.
+            // Bearer/CLI sign-out continues to end only its own local session.
             disableProviderLogout: true,
           },
         ],

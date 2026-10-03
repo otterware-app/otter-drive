@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { authClient } from '#/lib/auth-client'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 const searchSchema = z.object({
   callback: z.string().optional(),
   error: z.string().optional(),
+  signed_out: z.string().optional(),
 })
 export const Route = createFileRoute('/login')({
   validateSearch: searchSchema,
@@ -33,11 +34,14 @@ function LoginPage() {
       : null,
   )
   const [submitting, setSubmitting] = useState(false)
+  const attempting = useRef(false)
   useEffect(() => {
     if (session.data) location.assign(destination)
   }, [destination, session.data])
 
-  async function signIn() {
+  const signIn = useCallback(async () => {
+    if (attempting.current) return
+    attempting.current = true
     setError(null)
     setSubmitting(true)
     try {
@@ -53,8 +57,35 @@ function LoginPage() {
         cause instanceof Error ? cause.message : 'Could not start sign-in.',
       )
       setSubmitting(false)
+      attempting.current = false
     }
-  }
+  }, [destination])
+
+  useEffect(() => {
+    if (session.isPending || session.data || search.error || search.signed_out)
+      return
+    const controller = new AbortController()
+    void (async () => {
+      const config = await fetch('/api/auth/browser-session', {
+        signal: controller.signal,
+      })
+      if (!config.ok) return
+      const { url } = (await config.json()) as { url: string }
+      const response = await fetch(url, {
+        credentials: 'include',
+        signal: controller.signal,
+      })
+      if (
+        response.ok &&
+        ((await response.json()) as { signedIn: boolean }).signedIn &&
+        !controller.signal.aborted
+      )
+        await signIn()
+    })().catch(() => {
+      /* Sign-in remains available when Accounts cannot be reached. */
+    })
+    return () => controller.abort()
+  }, [session.isPending, session.data, search.error, search.signed_out, signIn])
 
   return (
     <AuthShell
