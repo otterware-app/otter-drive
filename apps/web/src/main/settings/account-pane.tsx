@@ -1,7 +1,7 @@
 import { authClient } from '#/lib/auth-client'
 import { Button } from '@/components/ui/button'
-import { UserAvatar } from '../drive/team-mark'
-import { signOut } from '../drive/team-rail'
+import { UserAvatar } from '../drive/folder-mark'
+import { signOut } from '../drive/folder-rail'
 import {
   SettingsGroup,
   SettingsPageContainer,
@@ -34,14 +34,14 @@ export function AccountPane() {
       ) : null}
       <SettingsSection title="Security">
         <SettingsRow
-          title="Password"
-          description="Get a link by email to choose a new one."
+          title="Otter account"
+          description="Your Google sign-in is shared with Otter Mail."
           control={
             <Button
               size="sm"
-              onClick={() => location.assign('/forgot-password')}
+              onClick={() => location.assign('/api/identity/account')}
             >
-              Reset password
+              Manage account
             </Button>
           }
         />

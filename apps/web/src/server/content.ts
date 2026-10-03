@@ -1,7 +1,9 @@
 import { HttpError } from './http'
+import { folderAccess } from './folders'
 import type { Env } from './types'
 
 interface GrantPayload {
+  principal: { userId: string; keyId?: string } | { service: true }
   artifactId: string
   versionId: string
   entryPath: string
@@ -81,7 +83,7 @@ export async function signThumbnailGrant(
 ): Promise<string> {
   const payload: ThumbnailGrantPayload = {
     r2Key,
-    expiresAt: (Math.floor(Date.now() / 3_600_000) + 2) * 3_600,
+    expiresAt: (Math.floor(Date.now() / 300_000) + 2) * 300,
   }
   const body = base64Url(encoder.encode(JSON.stringify(payload)))
   const signature = await crypto.subtle.sign(
@@ -114,7 +116,37 @@ async function verifyContentGrant(
   if (payload.expiresAt < Math.floor(Date.now() / 1_000)) {
     throw new HttpError(401, 'expired_grant', 'The content grant expired.')
   }
+  if (!payload.principal)
+    throw new HttpError(
+      401,
+      'invalid_grant',
+      'Reopen this document to refresh access.',
+    )
   return payload
+}
+
+async function assertGrantAccess(env: Env, grant: GrantPayload) {
+  if ('service' in grant.principal) return
+  const { userId, keyId } = grant.principal
+  const row = await env.DB.prepare(
+    `SELECT a.folder_id FROM artifact a JOIN user u ON u.id=? WHERE a.id=? AND coalesce(u.banned,0)=0`,
+  )
+    .bind(userId, grant.artifactId)
+    .first<{ folder_id: string }>()
+  if (!row)
+    throw new HttpError(403, 'access_revoked', 'Document access was removed.')
+  let keyScope: string | null = null
+  if (keyId) {
+    const key = await env.DB.prepare(
+      'SELECT metadata,permissions FROM apikey WHERE id=? AND referenceId=? AND enabled=1 AND (expiresAt IS NULL OR expiresAt>?)',
+    )
+      .bind(keyId, userId, new Date().toISOString())
+      .first<{ metadata: string | null; permissions: string }>()
+    if (!key || !JSON.parse(key.permissions).artifact?.includes('read'))
+      throw new HttpError(403, 'access_revoked', 'API key access was removed.')
+    keyScope = key.metadata ? (JSON.parse(key.metadata).folderId ?? null) : null
+  }
+  await folderAccess(env, userId, row.folder_id, keyScope)
 }
 
 async function verifyThumbnailGrant(
@@ -167,14 +199,18 @@ export async function startContentSession(
 ): Promise<Response> {
   assertContentOrigin(request, env)
   const grant = await verifyContentGrant(env, token)
+  await assertGrantAccess(env, grant)
+  const sessionSeconds =
+    'service' in grant.principal ? GRANT_SECONDS : SESSION_SECONDS
   const session = await signContentGrant(
     env,
     {
+      principal: grant.principal,
       artifactId: grant.artifactId,
       versionId: grant.versionId,
       entryPath: grant.entryPath,
     },
-    SESSION_SECONDS,
+    sessionSeconds,
   )
   const destination = new URL(
     `/raw/a/${grant.artifactId}/${grant.versionId}/${grant.entryPath}`,
@@ -188,7 +224,7 @@ export async function startContentSession(
   const secure = env.CONTENT_URL.startsWith('https://') ? '; Secure' : ''
   headers.append(
     'set-cookie',
-    `otw_content=${session}; Path=/raw/a/${grant.artifactId}/${grant.versionId}/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_SECONDS}${secure}`,
+    `otw_content=${session}; Path=/raw/a/${grant.artifactId}/${grant.versionId}/; HttpOnly; SameSite=Lax; Max-Age=${sessionSeconds}${secure}`,
   )
   return new Response(null, { status: 302, headers })
 }
@@ -234,6 +270,7 @@ export async function serveRawContent(
       'Content grant required.',
     )
   const grant = await verifyContentGrant(env, token)
+  await assertGrantAccess(env, grant)
   if (grant.artifactId !== artifactId || grant.versionId !== versionId) {
     throw new HttpError(
       403,
@@ -270,7 +307,7 @@ export async function serveRawContent(
     'content-type': file.content_type,
     'content-length': String(range ? range.length : file.size),
     'accept-ranges': 'bytes',
-    'cache-control': 'private, max-age=300',
+    'cache-control': 'private, no-store',
     'x-content-type-options': 'nosniff',
     'referrer-policy': 'no-referrer',
     'cross-origin-resource-policy': 'same-site',
@@ -306,7 +343,7 @@ export async function serveThumbnail(
     headers: {
       'content-type': object.httpMetadata?.contentType ?? 'image/jpeg',
       'content-length': String(object.size),
-      'cache-control': 'public, max-age=3600, immutable',
+      'cache-control': 'private, max-age=300',
       'x-content-type-options': 'nosniff',
       'cross-origin-resource-policy': 'same-site',
       'referrer-policy': 'no-referrer',

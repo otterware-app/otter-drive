@@ -117,7 +117,7 @@ describe('Otter Drive configuration migration', () => {
     expect((await getProfile()).profile).toEqual({
       apiUrl: 'https://custom.example',
       apiKey: 'otw_new-key',
-      organizationId: 'new-org',
+      folderId: 'new-org',
     })
   })
 
@@ -147,6 +147,7 @@ describe('Otter Drive configuration migration', () => {
       await writeFile(configPath(), JSON.stringify(saved))
       expect((await getProfile()).profile).toEqual({
         ...saved.profiles.default,
+        folderId: 'existing-org',
         apiUrl: 'https://drive.otterware.app',
       })
       expect(JSON.parse(await readFile(configPath(), 'utf8'))).toEqual(saved)

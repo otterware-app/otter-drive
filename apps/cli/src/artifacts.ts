@@ -18,10 +18,7 @@ import open from 'open'
 import pc from 'picocolors'
 import { ApiClient } from './client'
 import { getProfile } from './config'
-import {
-  resolveOrganizationReference,
-  type Organization,
-} from './organizations'
+import { resolveFolderReference, type Folder } from './folders'
 import {
   discoverFiles,
   resolveEntryPath,
@@ -336,12 +333,9 @@ export function registerArtifactCommands(program: Command): void {
   artifacts
     .command('move')
     .argument('<artifact>', 'Artifact ID or slug')
-    .argument(
-      '<organization>',
-      'Destination organization ID, slug, or unique name',
-    )
-    .description('Move an artifact to another organization')
-    .action(async (id: string, organizationRef: string, command: Command) => {
+    .argument('<folder>', 'Destination folder ID, slug, or unique name')
+    .description('Move an artifact to another folder')
+    .action(async (id: string, folderRef: string, command: Command) => {
       const { profile } = await getProfile(globals(command).profile)
       if (!profile.accessToken || profile.apiKey) {
         throw new Error(
@@ -349,16 +343,13 @@ export function registerArtifactCommands(program: Command): void {
         )
       }
       const client = new ApiClient(profile)
-      const organizations = await client.get<Organization[]>(
-        '/api/auth/organization/list',
+      const { data: folders } = await client.get<{ data: Folder[] }>(
+        '/api/v1/folders',
       )
-      const destination = resolveOrganizationReference(
-        organizations,
-        organizationRef,
-      )
+      const destination = resolveFolderReference(folders, folderRef)
       const result = artifactResponseSchema.parse(
         await client.post(`/api/v1/artifacts/${id}/move`, {
-          organizationId: destination.id,
+          folderId: destination.id,
         }),
       )
       if (globals(command).json) printJson(result)

@@ -1,8 +1,5 @@
 BETTER_AUTH_SECRET=replace-with-at-least-32-random-characters
 CONTENT_SIGNING_KEY=replace-with-a-different-random-secret
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-RESEND_API_KEY=
-EMAIL_FROM=Otter Drive <noreply@otterware.app>
+OTTER_AUTH_URL=http://localhost:8787/v1/auth
 APP_URL=http://localhost:3000
 CONTENT_URL=http://localhost:3000

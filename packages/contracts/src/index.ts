@@ -44,7 +44,9 @@ export type ArtifactPreviewResponse = z.infer<
 
 export const artifactSchema = z.object({
   id: z.string(),
-  organizationId: z.string(),
+  folderId: z.string(),
+  /** Legacy CLI response field; this is the folder ID. */
+  organizationId: z.string().optional(),
   ownerUserId: z.string().nullable(),
   slug: z.string(),
   title: z.string(),
@@ -116,9 +118,19 @@ export const updateArtifactInputSchema = z
   .refine((input) => Object.keys(input).length > 0, 'No updates supplied')
 export type UpdateArtifactInput = z.infer<typeof updateArtifactInputSchema>
 
-export const moveArtifactInputSchema = z.object({
-  organizationId: z.string().min(1),
-})
+export const moveArtifactInputSchema = z.preprocess(
+  (value) => {
+    if (
+      value &&
+      typeof value === 'object' &&
+      'organizationId' in value &&
+      !('folderId' in value)
+    )
+      return { ...value, folderId: value.organizationId }
+    return value
+  },
+  z.object({ folderId: z.string().min(1) }),
+)
 export type MoveArtifactInput = z.infer<typeof moveArtifactInputSchema>
 
 export const createUploadInputSchema = z.object({
@@ -205,3 +217,41 @@ export type ApiSuccess<T> = { data: T }
 
 export const API_VERSION = 'v1'
 export const DEFAULT_API_URL = 'https://drive.otterware.app'
+
+export const folderSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  parentId: z.string().nullable(),
+  kind: z.enum(['personal', 'shared', 'folder']),
+  ownerUserId: z.string(),
+  role: z.enum(['owner', 'editor', 'viewer']),
+})
+export type Folder = z.infer<typeof folderSchema>
+export const folderListResponseSchema = z.object({
+  data: z.array(folderSchema),
+})
+export const createFolderInputSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  parentId: z.string().min(1).optional(),
+  kind: z.enum(['shared', 'folder']).default('folder'),
+})
+export const updateFolderInputSchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  parentId: z.string().min(1).optional(),
+})
+export const inviteDriveMemberInputSchema = z.object({
+  email: z.email().trim().max(254),
+  role: z.enum(['viewer', 'editor']),
+})
+export const driveMemberSchema = z.object({
+  id: z.string(),
+  email: z.email(),
+  role: z.enum(['viewer', 'editor']),
+  userId: z.string().nullable(),
+})
+export const driveMembersResponseSchema = z.object({
+  data: z.array(driveMemberSchema),
+})
+
+export const transferDriveInputSchema = z.object({ userId: z.string().min(1) })

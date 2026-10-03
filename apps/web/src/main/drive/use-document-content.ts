@@ -12,7 +12,7 @@ export type DocumentContent =
   | { kind: 'spreadsheet'; sheets: DocumentSheet[] }
 
 interface ContentInput {
-  organizationId: string
+  folderId: string
   slug: string
   version: number
   entryPath: string
@@ -32,7 +32,7 @@ async function loadDocumentContent(
     {
       headers: {
         accept: '*/*',
-        'x-otterdrive-organization': input.organizationId,
+        'x-otterdrive-folder': input.folderId,
       },
       signal,
     },
@@ -77,7 +77,7 @@ export function useDocumentContent(input: ContentInput) {
   return useQuery({
     queryKey: [
       'document-content',
-      input.organizationId,
+      input.folderId,
       input.slug,
       input.version,
       input.entryPath,

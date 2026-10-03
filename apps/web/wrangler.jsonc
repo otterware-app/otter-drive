@@ -25,6 +25,7 @@
   ],
   "vars": {
     "APP_URL": "https://drive.otterware.app",
+    "OTTER_AUTH_URL": "https://relay.mail.otterware.app/v1/auth",
     "CONTENT_URL": "https://usercontent.otterware.app",
     "ADMIN_EMAIL": "chris.kafrouni@gmail.com",
     "EMAIL_FROM": "Otter Drive <noreply@otterware.app>",

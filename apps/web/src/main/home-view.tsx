@@ -23,8 +23,8 @@ import {
 } from './drive/documents'
 import { DriveSidebar } from './drive/drive-sidebar'
 import { DropOverlay, useDropUpload } from './drive/drop-upload'
-import { NewTeamDialog } from './drive/new-team-dialog'
-import { TeamRail, useCanCreateTeams } from './drive/team-rail'
+import { NewFolderDialog } from './drive/new-folder-dialog'
+import { FolderRail, useCanCreateFolders } from './drive/folder-rail'
 import { UploadDialogHost, requestUpload } from './drive/upload-dialog'
 import { useCommandHandlers } from './keybindings/dispatch'
 import {
@@ -34,13 +34,13 @@ import {
   useStoredWidth,
 } from './panes'
 import { SettingsNav } from './settings/settings-nav'
-import { useTeamRole } from './team-role'
+import { useFolderRole } from './folder-role'
 import { SidebarControl } from './top-bar'
-import { useTeams, type Team } from './teams'
+import { driveForFolder, useFolders, type Folder } from './folders'
 
 /**
  * The window (Otter Mail's home-view.tsx): ChatGPT-style chrome where the
- * frame wears the sidebar's surface, the rail of teams runs down its left
+ * frame wears the sidebar's surface, the rail of folders runs down its left
  * edge, and the columns after it share one inset panel with rounded
  * corners: the sidebar (views, or Settings' sections), the list, and the
  * main pane (the overview, a document, or a Settings pane) that the routes
@@ -49,18 +49,18 @@ import { useTeams, type Team } from './teams'
 
 export type Place =
   | { kind: 'home' }
-  | { kind: 'document'; teamSlug: string; slug: string }
+  | { kind: 'document'; folderSlug: string; slug: string }
   | { kind: 'settings'; pane: string }
 
 interface DriveContextValue {
-  /** The team showing: the open document's, else the active one. */
-  team: Team | null
-  teams: Team[]
-  /** Teams are known and there are none. */
-  noTeam: boolean
-  /** A document's team isn't one of yours. */
-  unknownTeamSlug: string | null
-  /** The team's active documents (the overview's and the counts'). */
+  /** The folder showing: the open document's, else the active one. */
+  folder: Folder | null
+  folders: Folder[]
+  /** Folders are known and there are none. */
+  noFolder: boolean
+  /** A document's folder isn't one of yours. */
+  unknownFolderSlug: string | null
+  /** The folder's active documents (the overview's and the counts'). */
   documents: Artifact[]
   documentsLoading: boolean
   narrow: boolean
@@ -104,39 +104,42 @@ export function DriveHome({
 }) {
   const navigate = useNavigate()
   const narrow = useIsNarrow()
-  const { activeTeam, loaded, teams, selectTeam } = useTeams()
-  const canCreateTeams = useCanCreateTeams()
+  const { activeFolder, loaded, folders, selectFolder } = useFolders()
+  const canCreateFolders = useCanCreateFolders()
 
-  // The team showing: the open document's (by its URL), else the active one.
-  const routeTeam =
+  // The folder showing: the open document's (by its URL), else the active one.
+  const routeFolder =
     place.kind === 'document'
-      ? (teams.find((team) => team.slug === place.teamSlug) ?? null)
+      ? (folders.find((folder) => folder.slug === place.folderSlug) ?? null)
       : null
-  const team = place.kind === 'document' ? routeTeam : activeTeam
-  const unknownTeamSlug =
-    place.kind === 'document' && loaded && !routeTeam ? place.teamSlug : null
+  const folder = place.kind === 'document' ? routeFolder : activeFolder
+  const unknownFolderSlug =
+    place.kind === 'document' && loaded && !routeFolder
+      ? place.folderSlug
+      : null
 
-  // A document opened from another team (a link, the palette) makes that
-  // team the active one, so home, uploads and Settings follow it.
+  // A document opened from another folder (a link, the palette) makes that
+  // folder the active one, so home, uploads and Settings follow it.
   const selecting = useRef<string | null>(null)
   useEffect(() => {
-    if (!routeTeam || !activeTeam || routeTeam.id === activeTeam.id) return
-    if (selecting.current === routeTeam.id) return
-    selecting.current = routeTeam.id
+    if (!routeFolder || !activeFolder || routeFolder.id === activeFolder.id)
+      return
+    if (selecting.current === routeFolder.id) return
+    selecting.current = routeFolder.id
     // A failure keeps the mark, so it isn't retried on every render.
-    void selectTeam(routeTeam.id).then(
+    void selectFolder(routeFolder.id).then(
       () => {
         selecting.current = null
       },
       () => undefined,
     )
-  }, [routeTeam, activeTeam, selectTeam])
+  }, [routeFolder, activeFolder, selectFolder])
 
-  useTeamRole(team?.id, Boolean(team))
+  useFolderRole(folder?.id, Boolean(folder))
   const status = search.view === 'archived' ? 'archived' : 'active'
-  const active = useDocuments(team?.id, 'active')
+  const active = useDocuments(folder?.id, 'active')
   // The list's own source: the same query as `active` unless it's Archived.
-  const listSource = useDocuments(team?.id, status)
+  const listSource = useDocuments(folder?.id, status)
   const shown = useMemo(
     () => visibleDocuments(listSource.documents, search),
     [listSource.documents, search],
@@ -146,7 +149,7 @@ export function DriveHome({
     return listSource.documents.filter((artifact) => inView(artifact, view))
       .length
   }, [listSource.documents, search.view])
-  const { put, removed } = useDocumentActions(team?.id)
+  const { put, removed } = useDocumentActions(folder?.id)
 
   // Layout: the sidebar (a drawer on phones), the list, and full width.
   const [sidebarOpen, setSidebarOpen] = useStoredBoolean(
@@ -180,7 +183,7 @@ export function DriveHome({
   }
 
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const [newTeamOpen, setNewTeamOpen] = useState(false)
+  const [newFolderOpen, setNewFolderOpen] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
 
   const goHome = (update: Partial<DriveSearch> = {}) =>
@@ -195,15 +198,15 @@ export function DriveHome({
       }),
     })
 
-  const openTeam = async (next: Team) => {
+  const openFolder = async (next: Folder) => {
     setDrawerOpen(false)
-    // Leave the open document first: while its route names another team,
+    // Leave the open document first: while its route names another folder,
     // the effect above would switch straight back to it.
     await navigate({ to: '/home', search: {} })
     try {
-      await selectTeam(next.id)
+      await selectFolder(next.id)
     } catch (reason) {
-      toast.error('Could not switch teams', {
+      toast.error('Could not switch folders', {
         description: reason instanceof Error ? reason.message : String(reason),
       })
     }
@@ -223,7 +226,7 @@ export function DriveHome({
     'sidebar.toggle': toggleSidebar,
     'search.focus': () => focusSearch(),
     'document.upload': () => {
-      if (!team) return false
+      if (!folder || folder.role === 'viewer') return false
       requestUpload()
     },
     'document.close': () => {
@@ -231,22 +234,22 @@ export function DriveHome({
       goHome()
     },
     ...Object.fromEntries(
-      teams
+      folders
         .slice(0, 9)
         .map((item, index) => [
-          `team.jump.${index + 1}`,
-          () => void openTeam(item),
+          `folder.jump.${index + 1}`,
+          () => void openFolder(item),
         ]),
     ),
   })
 
-  const drop = useDropUpload(team, put)
+  const drop = useDropUpload(folder, put)
 
   const context: DriveContextValue = {
-    team,
-    teams,
-    noTeam: loaded && teams.length === 0,
-    unknownTeamSlug,
+    folder,
+    folders,
+    noFolder: loaded && folders.length === 0,
+    unknownFolderSlug,
     documents: active.documents,
     documentsLoading: active.loading,
     narrow,
@@ -266,7 +269,9 @@ export function DriveHome({
     />
   ) : (
     <DriveSidebar
-      team={team}
+      folder={folder}
+      folders={folders}
+      onOpenFolder={(next) => void openFolder(next)}
       documents={active.documents}
       search={search}
       onNavigate={(update) => {
@@ -287,11 +292,11 @@ export function DriveHome({
         className="surface-grain flex h-dvh bg-sidebar-surface text-foreground"
         {...drop.handlers}
       >
-        <TeamRail
-          teams={teams}
-          currentTeamId={team?.id ?? null}
+        <FolderRail
+          folders={folders.filter((item) => !item.parentId)}
+          currentFolderId={driveForFolder(folders, folder)?.id ?? null}
           settingsOpen={settingsOpen}
-          onSelectTeam={(next) => void openTeam(next)}
+          onSelectFolder={(next) => void openFolder(next)}
         />
         {/* A thin margin of frame on every free side (ChatGPT), so the panel
             floats with all four corners rounded. */}
@@ -334,10 +339,10 @@ export function DriveHome({
                 )}
               >
                 <DocumentList
-                  team={team}
+                  folder={folder}
                   documents={shown}
                   totalInView={totalInView}
-                  loading={!context.noTeam && (!team || listSource.loading)}
+                  loading={!context.noFolder && (!folder || listSource.loading)}
                   error={listSource.error}
                   search={search}
                   selectedSlug={documentOpen ? place.slug : null}
@@ -376,7 +381,7 @@ export function DriveHome({
               </div>
             </>
           ) : null}
-          {drop.dragging ? <DropOverlay team={team} /> : null}
+          {drop.dragging ? <DropOverlay folder={folder} /> : null}
         </div>
       </div>
 
@@ -387,28 +392,28 @@ export function DriveHome({
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
-        teams={teams}
-        currentTeam={team}
-        canCreateTeams={canCreateTeams}
-        onSelectTeam={(next) => void openTeam(next)}
-        onNewTeam={() => setNewTeamOpen(true)}
+        folders={folders}
+        currentFolder={folder}
+        canCreateFolders={canCreateFolders}
+        onSelectFolder={(next) => void openFolder(next)}
+        onNewFolder={() => setNewFolderOpen(true)}
         onToggleSidebar={toggleSidebar}
       />
-      <NewTeamDialog open={newTeamOpen} onOpenChange={setNewTeamOpen} />
+      <NewFolderDialog open={newFolderOpen} onOpenChange={setNewFolderOpen} />
       <UploadDialogHost
-        team={team}
+        folder={folder}
         onUploaded={(uploaded) => {
           put(uploaded)
-          if (team)
+          if (folder)
             void navigate({
-              to: '/$organizationSlug/a/$slug',
-              params: { organizationSlug: team.slug, slug: uploaded.slug },
+              to: '/$folderSlug/a/$slug',
+              params: { folderSlug: folder.slug, slug: uploaded.slug },
             })
         }}
       />
       <DeleteDocumentDialogHost
-        onDeleted={(artifact, teamId) => {
-          if (teamId === team?.id) removed(artifact)
+        onDeleted={(artifact, folderId) => {
+          if (folderId === folder?.id) removed(artifact)
           if (documentOpen && place.slug === artifact.slug) goHome()
         }}
       />

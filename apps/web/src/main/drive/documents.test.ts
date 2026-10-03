@@ -13,7 +13,7 @@ function artifact(
   const { entryPath = 'index.html', ...rest } = overrides
   return {
     id: rest.slug ?? 'doc',
-    organizationId: 'org',
+    folderId: 'org',
     ownerUserId: null,
     slug: 'doc',
     title: 'Doc',

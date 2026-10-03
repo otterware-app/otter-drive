@@ -5,13 +5,13 @@ interface CurrentActorResponse {
   data: { roles: string[] }
 }
 
-/** Your roles in a team (the active one when no id is given). */
-export function useTeamRole(teamId?: string, enabled = true) {
+/** Your roles in a folder (the active one when no id is given). */
+export function useFolderRole(folderId?: string, enabled = true) {
   const query = useQuery({
     enabled,
-    queryKey: ['actor', teamId ?? 'active'],
+    queryKey: ['actor', folderId ?? 'active'],
     queryFn: () =>
-      api<CurrentActorResponse>('/api/v1/me', { organizationId: teamId }),
+      api<CurrentActorResponse>('/api/v1/me', { folderId: folderId }),
     staleTime: 5 * 60_000,
   })
   const roles = query.data?.data.roles ?? []

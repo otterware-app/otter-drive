@@ -30,22 +30,22 @@ import { Kbd } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { shortcutLabel, type KeybindingCommand } from '../keybindings/commands'
 import { PaneIcon } from '../top-bar'
-import type { Team } from '../teams'
+import type { Folder } from '../folders'
 import {
   KIND_META,
   documentKind,
   documentsQuery,
   formatListDate,
 } from './documents'
-import { TeamMark } from './team-mark'
-import { signOut } from './team-rail'
+import { FolderMark } from './folder-mark'
+import { signOut } from './folder-rail'
 import { requestUpload } from './upload-dialog'
 
 /**
  * Command palette (⌘K), Otter Mail's: a card anchored near the top, a large
  * search field, grouped results (icon, title, optional subtitle, trailing
  * date or shortcut), a submenu (Backspace goes back), and a key-hint
- * footer. Documents are searched across every team.
+ * footer. Documents are searched across every folder.
  */
 
 type Page = 'root' | 'appearance'
@@ -94,11 +94,11 @@ function matchScore(item: PaletteItem, needle: string): number {
 type CommandPaletteProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  teams: Team[]
-  currentTeam: Team | null
-  canCreateTeams: boolean
-  onSelectTeam: (team: Team) => void
-  onNewTeam: () => void
+  folders: Folder[]
+  currentFolder: Folder | null
+  canCreateFolders: boolean
+  onSelectFolder: (folder: Folder) => void
+  onNewFolder: () => void
   onToggleSidebar: () => void
 }
 
@@ -110,11 +110,11 @@ export function CommandPalette(props: CommandPaletteProps) {
 
 function PaletteCard({
   onOpenChange,
-  teams,
-  currentTeam,
-  canCreateTeams,
-  onSelectTeam,
-  onNewTeam,
+  folders,
+  currentFolder,
+  canCreateFolders,
+  onSelectFolder,
+  onNewFolder,
   onToggleSidebar,
 }: CommandPaletteProps) {
   const navigate = useNavigate()
@@ -130,12 +130,12 @@ function PaletteCard({
   }, [page])
 
   const documentQueries = useQueries({
-    queries: teams.map((team) => ({
-      ...documentsQuery(team.id, 'active'),
+    queries: folders.map((folder) => ({
+      ...documentsQuery(folder.id, 'active'),
     })),
   })
-  const documentsByTeam = teams.map((team, index) => ({
-    team,
+  const documentsByFolder = folders.map((folder, index) => ({
+    folder,
     documents: documentQueries[index]?.data ?? [],
   }))
   const loadingDocuments = documentQueries.some((result) => result.isPending)
@@ -182,24 +182,24 @@ function PaletteCard({
       ])
     }
 
-    const openDocument = (team: Team, artifact: Artifact) =>
+    const openDocument = (folder: Folder, artifact: Artifact) =>
       void navigate({
-        to: '/$organizationSlug/a/$slug',
-        params: { organizationSlug: team.slug, slug: artifact.slug },
+        to: '/$folderSlug/a/$slug',
+        params: { folderSlug: folder.slug, slug: artifact.slug },
       })
-    const documentItem = (team: Team, artifact: Artifact): PaletteItem => {
+    const documentItem = (folder: Folder, artifact: Artifact): PaletteItem => {
       const Icon = KIND_META[documentKind(artifact)].icon
       return {
-        id: `document:${team.id}:${artifact.id}`,
+        id: `document:${folder.id}:${artifact.id}`,
         icon: <Icon className={ICON} />,
         title: artifact.title,
         description:
-          teams.length > 1
-            ? `${team.name} · ${artifact.description || artifact.slug}`
+          folders.length > 1
+            ? `${folder.name} · ${artifact.description || artifact.slug}`
             : artifact.description || artifact.slug,
-        keywords: `${artifact.slug} ${team.name}`,
+        keywords: `${artifact.slug} ${folder.name}`,
         trailing: formatListDate(artifact.updatedAt),
-        run: () => openDocument(team, artifact),
+        run: () => openDocument(folder, artifact),
       }
     }
 
@@ -213,14 +213,14 @@ function PaletteCard({
         shortcut: sc('document.upload'),
         run: requestUpload,
       },
-      ...(canCreateTeams
+      ...(canCreateFolders
         ? [
             {
-              id: 'new-team',
+              id: 'new-folder',
               icon: <PlusIcon className={ICON} />,
-              title: 'New team',
-              keywords: 'create organization workspace',
-              run: onNewTeam,
+              title: 'New folder',
+              keywords: 'create folder workspace',
+              run: onNewFolder,
             },
           ]
         : []),
@@ -244,7 +244,7 @@ function PaletteCard({
         title: 'Settings',
         keywords: 'preferences members invite api keys agents',
         run: () =>
-          void navigate({ to: '/settings/$pane', params: { pane: 'team' } }),
+          void navigate({ to: '/settings/$pane', params: { pane: 'folder' } }),
       },
       {
         id: 'sign-out',
@@ -255,42 +255,42 @@ function PaletteCard({
       },
     ]
 
-    const teamItems: PaletteItem[] = teams.map((team, index) => ({
-      id: `team:${team.id}`,
-      icon: <TeamMark team={team} className="size-4 text-[7px]" />,
-      title: team.name,
-      keywords: 'switch team go to',
+    const folderItems: PaletteItem[] = folders.map((folder, index) => ({
+      id: `folder:${folder.id}`,
+      icon: <FolderMark folder={folder} className="size-4 text-[7px]" />,
+      title: folder.name,
+      keywords: 'switch folder go to',
       shortcut:
         index < 9
-          ? sc(`team.jump.${index + 1}` as KeybindingCommand)
+          ? sc(`folder.jump.${index + 1}` as KeybindingCommand)
           : undefined,
-      checked: team.id === currentTeam?.id,
-      run: () => onSelectTeam(team),
+      checked: folder.id === currentFolder?.id,
+      run: () => onSelectFolder(folder),
     }))
 
     if (!needle) {
       const recent = (
-        documentsByTeam.find((entry) => entry.team.id === currentTeam?.id)
+        documentsByFolder.find((entry) => entry.folder.id === currentFolder?.id)
           ?.documents ?? []
       )
         .slice()
         .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
         .slice(0, 5)
       return [
-        ...(currentTeam && recent.length
+        ...(currentFolder && recent.length
           ? [
               {
                 id: 'recent',
                 label: 'Recently updated',
                 items: recent.map((artifact) =>
-                  documentItem(currentTeam, artifact),
+                  documentItem(currentFolder, artifact),
                 ),
               },
             ]
           : []),
         { id: 'actions', label: 'Actions', items: actions },
-        ...(teams.length > 1
-          ? [{ id: 'teams', label: 'Teams', items: teamItems }]
+        ...(folders.length > 1
+          ? [{ id: 'folders', label: 'Folders', items: folderItems }]
           : []),
       ]
     }
@@ -299,8 +299,8 @@ function PaletteCard({
       {
         id: 'documents',
         label: 'Documents',
-        items: documentsByTeam.flatMap(({ team, documents }) =>
-          documents.map((artifact) => documentItem(team, artifact)),
+        items: documentsByFolder.flatMap(({ folder, documents }) =>
+          documents.map((artifact) => documentItem(folder, artifact)),
         ),
       },
     ]).map((group) => ({
@@ -311,7 +311,7 @@ function PaletteCard({
       ...documents,
       ...filter([
         { id: 'actions', label: 'Actions', items: actions },
-        { id: 'teams', label: 'Teams', items: teamItems },
+        { id: 'folders', label: 'Folders', items: folderItems },
       ]),
     ]
   })()

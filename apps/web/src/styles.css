@@ -28,7 +28,7 @@
   /* Thin chrome, like Linear's. */
   --workspace-topbar-height: 42px;
   --workspace-titlebar-control-size: 1.75rem;
-  /* The rail of teams down the window's left edge (team-rail.tsx), under
+  /* The rail of drives down the window's left edge (folder-rail.tsx), under
      the title band; the panes start after it. */
   --workspace-rail-width: 52px;
   /* A browser tab has no traffic lights to clear: the sidebar toggle sits

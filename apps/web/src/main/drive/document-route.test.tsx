@@ -10,14 +10,14 @@ vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn() }))
 vi.mock('../home-view', () => ({ useDrive }))
 vi.mock('./document-viewer', () => ({
   DocumentViewer: ({
-    team,
+    folder,
     slug,
   }: {
-    team: { id: string; slug: string }
+    folder: { id: string; slug: string }
     slug: string
   }) => (
     <div>
-      Viewer for {team.slug}/{slug} ({team.id})
+      Viewer for {folder.slug}/{slug} ({folder.id})
     </div>
   ),
 }))
@@ -27,28 +27,28 @@ const drive = {
   expanded: false,
   toggleExpanded: vi.fn(),
   mainIsLeftmost: false,
-  teams: [
+  folders: [
     { id: 'org-chris', name: 'Chris', slug: 'chris' },
     { id: 'org-zentio', name: 'Zentio', slug: 'zentio' },
   ],
-  unknownTeamSlug: null,
+  unknownFolderSlug: null,
 }
 
 describe('DocumentRoute', () => {
   afterEach(cleanup)
   beforeEach(() => useDrive.mockReset())
 
-  it('scopes the viewer to the team encoded in the URL', () => {
+  it('scopes the viewer to the folder encoded in the URL', () => {
     useDrive.mockReturnValue(drive)
-    render(<DocumentRoute teamSlug="zentio" slug="contract" />)
+    render(<DocumentRoute folderSlug="zentio" slug="contract" />)
     expect(
       screen.getByText('Viewer for zentio/contract (org-zentio)'),
     ).not.toBeNull()
   })
 
-  it('explains a team you are not in', () => {
-    useDrive.mockReturnValue({ ...drive, unknownTeamSlug: 'acme' })
-    render(<DocumentRoute teamSlug="acme" slug="contract" />)
-    expect(screen.getByText('Not one of your teams')).not.toBeNull()
+  it('explains a folder you are not in', () => {
+    useDrive.mockReturnValue({ ...drive, unknownFolderSlug: 'acme' })
+    render(<DocumentRoute folderSlug="acme" slug="contract" />)
+    expect(screen.getByText('Not one of your folders')).not.toBeNull()
   })
 })

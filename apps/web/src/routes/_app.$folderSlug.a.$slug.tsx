@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { DocumentRoute } from '#/main/drive/document-route'
 
-export const Route = createFileRoute('/_app/$organizationSlug/a/$slug')({
+export const Route = createFileRoute('/_app/$folderSlug/a/$slug')({
   validateSearch: z.object({
     sheet: z.string().trim().min(1).max(100).optional().catch(undefined),
   }),
@@ -10,7 +10,7 @@ export const Route = createFileRoute('/_app/$organizationSlug/a/$slug')({
 })
 
 function ArtifactRoute() {
-  const { organizationSlug, slug } = Route.useParams()
+  const { folderSlug, slug } = Route.useParams()
   const { sheet } = Route.useSearch()
-  return <DocumentRoute teamSlug={organizationSlug} slug={slug} sheet={sheet} />
+  return <DocumentRoute folderSlug={folderSlug} slug={slug} sheet={sheet} />
 }

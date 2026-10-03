@@ -10,7 +10,7 @@ import {
 import { slugify, titleFromName, uploadDocument } from '#/lib/upload-document'
 import { toast } from '@/components/ui/toast'
 import { isOverlayOpen } from '../keybindings/dispatch'
-import type { Team } from '../teams'
+import type { Folder } from '../folders'
 
 /**
  * Anything dragged onto the window uploads straight away: each file becomes
@@ -18,7 +18,7 @@ import type { Team } from '../teams'
  * in a toast that turns into "Uploaded", with Open.
  */
 export function useDropUpload(
-  team: Team | null,
+  folder: Folder | null,
   onUploaded: (artifact: Artifact) => void,
 ) {
   const [dragging, setDragging] = useState(false)
@@ -27,17 +27,18 @@ export function useDropUpload(
 
   const accepts = (event: DragEvent) =>
     hasDraggedFiles(event.dataTransfer) &&
-    team !== null &&
+    folder !== null &&
+    folder.role !== 'viewer' &&
     // A dialog (the upload dialog has its own drop zone) keeps its drops.
     !isOverlayOpen()
 
-  async function upload(item: DroppedItem, target: Team) {
+  async function upload(item: DroppedItem, target: Folder) {
     const title = titleFromName(item.name) || item.name
     const heading = `Uploading ${title}`
     const id = toast.loading(heading, { description: 'Preparing files…' })
     try {
       const uploaded = await uploadDocument({
-        organizationId: target.id,
+        folderId: target.id,
         files: item.files,
         title,
         slug: slugify(title) || 'document',
@@ -51,8 +52,8 @@ export function useDropUpload(
           label: 'Open',
           onClick: () =>
             void navigate({
-              to: '/$organizationSlug/a/$slug',
-              params: { organizationSlug: target.slug, slug: uploaded.slug },
+              to: '/$folderSlug/a/$slug',
+              params: { folderSlug: target.slug, slug: uploaded.slug },
             }),
         },
       })
@@ -81,11 +82,11 @@ export function useDropUpload(
       if (depth.current === 0) setDragging(false)
     },
     onDrop(event: DragEvent) {
-      if (!accepts(event) || !team) return
+      if (!accepts(event) || !folder) return
       event.preventDefault()
       depth.current = 0
       setDragging(false)
-      const target = team
+      const target = folder
       void readDroppedItems(event.dataTransfer).then((items) => {
         if (items.length === 0) {
           toast.error('Nothing to upload', {
@@ -102,7 +103,7 @@ export function useDropUpload(
 }
 
 /** Over the content panel while files are dragged in. */
-export function DropOverlay({ team }: { team: Team | null }) {
+export function DropOverlay({ folder }: { folder: Folder | null }) {
   return (
     <div
       aria-hidden
@@ -114,7 +115,7 @@ export function DropOverlay({ team }: { team: Team | null }) {
         </span>
         <div>
           <p className="text-lg font-medium text-foreground">
-            Drop to upload to {team?.name}
+            Drop to upload to {folder?.name}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             Each file becomes a document. A folder becomes one document.

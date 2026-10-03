@@ -1,18 +1,18 @@
 import { apiErrorSchema } from '@otterware/contracts'
 
 export interface ApiRequestInit extends RequestInit {
-  organizationId?: string | undefined
+  folderId?: string | undefined
 }
 
 export async function api<T>(
   path: string,
   init: ApiRequestInit = {},
 ): Promise<T> {
-  const { organizationId, ...requestInit } = init
+  const { folderId, ...requestInit } = init
   const headers = new Headers(requestInit.headers)
   headers.set('accept', 'application/json')
-  if (organizationId) {
-    headers.set('x-otterdrive-organization', organizationId)
+  if (folderId) {
+    headers.set('x-otterdrive-folder', folderId)
   }
   if (requestInit.body && !headers.has('content-type')) {
     headers.set('content-type', 'application/json')

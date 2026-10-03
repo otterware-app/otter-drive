@@ -29,10 +29,10 @@ export function requestUpload() {
 }
 
 export function UploadDialogHost({
-  team,
+  folder,
   onUploaded,
 }: {
-  team: { id: string; name: string } | null
+  folder: { id: string; name: string } | null
   onUploaded: (artifact: Artifact) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -43,8 +43,8 @@ export function UploadDialogHost({
   }, [])
   return (
     <UploadDialog
-      open={open && team !== null}
-      team={team}
+      open={open && folder !== null}
+      folder={folder}
       onOpenChange={setOpen}
       onUploaded={onUploaded}
     />
@@ -53,12 +53,12 @@ export function UploadDialogHost({
 
 function UploadDialog({
   open,
-  team,
+  folder,
   onOpenChange,
   onUploaded,
 }: {
   open: boolean
-  team: { id: string; name: string } | null
+  folder: { id: string; name: string } | null
   onOpenChange: (open: boolean) => void
   onUploaded: (artifact: Artifact) => void
 }) {
@@ -105,7 +105,7 @@ function UploadDialog({
   }
 
   async function upload() {
-    if (!team || files.length === 0 || !entryPath) return
+    if (!folder || files.length === 0 || !entryPath) return
     const finalSlug = slug || slugify(title)
     if (!title.trim() || !finalSlug) {
       setError('A title and slug are required.')
@@ -114,7 +114,7 @@ function UploadDialog({
     setError(null)
     try {
       const uploaded = await uploadDocument({
-        organizationId: team.id,
+        folderId: folder.id,
         files,
         title: title.trim(),
         slug: finalSlug,
@@ -136,7 +136,7 @@ function UploadDialog({
       description={
         <>
           A file or a folder becomes version 1 of a new document in{' '}
-          <span className="text-foreground">{team?.name}</span>.
+          <span className="text-foreground">{folder?.name}</span>.
         </>
       }
       confirmLabel={status ? 'Uploading…' : 'Upload'}

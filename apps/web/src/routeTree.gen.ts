@@ -21,11 +21,12 @@ import { Route as AppSettingsIndexRouteImport } from './routes/_app.settings.ind
 import { Route as RawThumbnailTokenRouteImport } from './routes/raw.thumbnail.$token'
 import { Route as RawSessionTokenRouteImport } from './routes/raw.session.$token'
 import { Route as ApiV1SplatRouteImport } from './routes/api.v1.$'
+import { Route as ApiIdentitySplatRouteImport } from './routes/api.identity.$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 import { Route as AppSettingsPaneRouteImport } from './routes/_app.settings.$pane'
-import { Route as AppOrganizationSlugASlugRouteImport } from './routes/_app.$organizationSlug.a.$slug'
+import { Route as AppFolderSlugASlugRouteImport } from './routes/_app.$folderSlug.a.$slug'
 import { Route as RawAArtifactIdVersionIdSplatRouteImport } from './routes/raw.a.$artifactId.$versionId.$'
-import { Route as AppOrganizationSlugASlugVersionRouteImport } from './routes/_app.$organizationSlug.a.$slug_.$version'
+import { Route as AppFolderSlugASlugVersionRouteImport } from './routes/_app.$folderSlug.a.$slug_.$version'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -86,6 +87,11 @@ const ApiV1SplatRoute = ApiV1SplatRouteImport.update({
   path: '/api/v1/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiIdentitySplatRoute = ApiIdentitySplatRouteImport.update({
+  id: '/api/identity/$',
+  path: '/api/identity/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -96,22 +102,21 @@ const AppSettingsPaneRoute = AppSettingsPaneRouteImport.update({
   path: '/settings/$pane',
   getParentRoute: () => AppRoute,
 } as any)
-const AppOrganizationSlugASlugRoute =
-  AppOrganizationSlugASlugRouteImport.update({
-    id: '/$organizationSlug/a/$slug',
-    path: '/$organizationSlug/a/$slug',
-    getParentRoute: () => AppRoute,
-  } as any)
+const AppFolderSlugASlugRoute = AppFolderSlugASlugRouteImport.update({
+  id: '/$folderSlug/a/$slug',
+  path: '/$folderSlug/a/$slug',
+  getParentRoute: () => AppRoute,
+} as any)
 const RawAArtifactIdVersionIdSplatRoute =
   RawAArtifactIdVersionIdSplatRouteImport.update({
     id: '/raw/a/$artifactId/$versionId/$',
     path: '/raw/a/$artifactId/$versionId/$',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AppOrganizationSlugASlugVersionRoute =
-  AppOrganizationSlugASlugVersionRouteImport.update({
-    id: '/$organizationSlug/a/$slug_/$version',
-    path: '/$organizationSlug/a/$slug/$version',
+const AppFolderSlugASlugVersionRoute =
+  AppFolderSlugASlugVersionRouteImport.update({
+    id: '/$folderSlug/a/$slug_/$version',
+    path: '/$folderSlug/a/$slug/$version',
     getParentRoute: () => AppRoute,
   } as any)
 
@@ -125,12 +130,13 @@ export interface FileRoutesByFullPath {
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/settings/$pane': typeof AppSettingsPaneRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/identity/$': typeof ApiIdentitySplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/raw/session/$token': typeof RawSessionTokenRoute
   '/raw/thumbnail/$token': typeof RawThumbnailTokenRoute
   '/settings/': typeof AppSettingsIndexRoute
-  '/$organizationSlug/a/$slug': typeof AppOrganizationSlugASlugRoute
-  '/$organizationSlug/a/$slug/$version': typeof AppOrganizationSlugASlugVersionRoute
+  '/$folderSlug/a/$slug': typeof AppFolderSlugASlugRoute
+  '/$folderSlug/a/$slug/$version': typeof AppFolderSlugASlugVersionRoute
   '/raw/a/$artifactId/$versionId/$': typeof RawAArtifactIdVersionIdSplatRoute
 }
 export interface FileRoutesByTo {
@@ -143,12 +149,13 @@ export interface FileRoutesByTo {
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/settings/$pane': typeof AppSettingsPaneRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/identity/$': typeof ApiIdentitySplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/raw/session/$token': typeof RawSessionTokenRoute
   '/raw/thumbnail/$token': typeof RawThumbnailTokenRoute
   '/settings': typeof AppSettingsIndexRoute
-  '/$organizationSlug/a/$slug': typeof AppOrganizationSlugASlugRoute
-  '/$organizationSlug/a/$slug/$version': typeof AppOrganizationSlugASlugVersionRoute
+  '/$folderSlug/a/$slug': typeof AppFolderSlugASlugRoute
+  '/$folderSlug/a/$slug/$version': typeof AppFolderSlugASlugVersionRoute
   '/raw/a/$artifactId/$versionId/$': typeof RawAArtifactIdVersionIdSplatRoute
 }
 export interface FileRoutesById {
@@ -163,12 +170,13 @@ export interface FileRoutesById {
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/_app/settings/$pane': typeof AppSettingsPaneRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/identity/$': typeof ApiIdentitySplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/raw/session/$token': typeof RawSessionTokenRoute
   '/raw/thumbnail/$token': typeof RawThumbnailTokenRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
-  '/_app/$organizationSlug/a/$slug': typeof AppOrganizationSlugASlugRoute
-  '/_app/$organizationSlug/a/$slug_/$version': typeof AppOrganizationSlugASlugVersionRoute
+  '/_app/$folderSlug/a/$slug': typeof AppFolderSlugASlugRoute
+  '/_app/$folderSlug/a/$slug_/$version': typeof AppFolderSlugASlugVersionRoute
   '/raw/a/$artifactId/$versionId/$': typeof RawAArtifactIdVersionIdSplatRoute
 }
 export interface FileRouteTypes {
@@ -183,12 +191,13 @@ export interface FileRouteTypes {
     | '/invite/$invitationId'
     | '/settings/$pane'
     | '/api/auth/$'
+    | '/api/identity/$'
     | '/api/v1/$'
     | '/raw/session/$token'
     | '/raw/thumbnail/$token'
     | '/settings/'
-    | '/$organizationSlug/a/$slug'
-    | '/$organizationSlug/a/$slug/$version'
+    | '/$folderSlug/a/$slug'
+    | '/$folderSlug/a/$slug/$version'
     | '/raw/a/$artifactId/$versionId/$'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -201,12 +210,13 @@ export interface FileRouteTypes {
     | '/invite/$invitationId'
     | '/settings/$pane'
     | '/api/auth/$'
+    | '/api/identity/$'
     | '/api/v1/$'
     | '/raw/session/$token'
     | '/raw/thumbnail/$token'
     | '/settings'
-    | '/$organizationSlug/a/$slug'
-    | '/$organizationSlug/a/$slug/$version'
+    | '/$folderSlug/a/$slug'
+    | '/$folderSlug/a/$slug/$version'
     | '/raw/a/$artifactId/$versionId/$'
   id:
     | '__root__'
@@ -220,12 +230,13 @@ export interface FileRouteTypes {
     | '/invite/$invitationId'
     | '/_app/settings/$pane'
     | '/api/auth/$'
+    | '/api/identity/$'
     | '/api/v1/$'
     | '/raw/session/$token'
     | '/raw/thumbnail/$token'
     | '/_app/settings/'
-    | '/_app/$organizationSlug/a/$slug'
-    | '/_app/$organizationSlug/a/$slug_/$version'
+    | '/_app/$folderSlug/a/$slug'
+    | '/_app/$folderSlug/a/$slug_/$version'
     | '/raw/a/$artifactId/$versionId/$'
   fileRoutesById: FileRoutesById
 }
@@ -238,6 +249,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiIdentitySplatRoute: typeof ApiIdentitySplatRoute
   ApiV1SplatRoute: typeof ApiV1SplatRoute
   RawSessionTokenRoute: typeof RawSessionTokenRoute
   RawThumbnailTokenRoute: typeof RawThumbnailTokenRoute
@@ -330,6 +342,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/identity/$': {
+      id: '/api/identity/$'
+      path: '/api/identity/$'
+      fullPath: '/api/identity/$'
+      preLoaderRoute: typeof ApiIdentitySplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -344,11 +363,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsPaneRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/$organizationSlug/a/$slug': {
-      id: '/_app/$organizationSlug/a/$slug'
-      path: '/$organizationSlug/a/$slug'
-      fullPath: '/$organizationSlug/a/$slug'
-      preLoaderRoute: typeof AppOrganizationSlugASlugRouteImport
+    '/_app/$folderSlug/a/$slug': {
+      id: '/_app/$folderSlug/a/$slug'
+      path: '/$folderSlug/a/$slug'
+      fullPath: '/$folderSlug/a/$slug'
+      preLoaderRoute: typeof AppFolderSlugASlugRouteImport
       parentRoute: typeof AppRoute
     }
     '/raw/a/$artifactId/$versionId/$': {
@@ -358,11 +377,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RawAArtifactIdVersionIdSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/$organizationSlug/a/$slug_/$version': {
-      id: '/_app/$organizationSlug/a/$slug_/$version'
-      path: '/$organizationSlug/a/$slug/$version'
-      fullPath: '/$organizationSlug/a/$slug/$version'
-      preLoaderRoute: typeof AppOrganizationSlugASlugVersionRouteImport
+    '/_app/$folderSlug/a/$slug_/$version': {
+      id: '/_app/$folderSlug/a/$slug_/$version'
+      path: '/$folderSlug/a/$slug/$version'
+      fullPath: '/$folderSlug/a/$slug/$version'
+      preLoaderRoute: typeof AppFolderSlugASlugVersionRouteImport
       parentRoute: typeof AppRoute
     }
   }
@@ -372,16 +391,16 @@ interface AppRouteChildren {
   AppHomeRoute: typeof AppHomeRoute
   AppSettingsPaneRoute: typeof AppSettingsPaneRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
-  AppOrganizationSlugASlugRoute: typeof AppOrganizationSlugASlugRoute
-  AppOrganizationSlugASlugVersionRoute: typeof AppOrganizationSlugASlugVersionRoute
+  AppFolderSlugASlugRoute: typeof AppFolderSlugASlugRoute
+  AppFolderSlugASlugVersionRoute: typeof AppFolderSlugASlugVersionRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppHomeRoute: AppHomeRoute,
   AppSettingsPaneRoute: AppSettingsPaneRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
-  AppOrganizationSlugASlugRoute: AppOrganizationSlugASlugRoute,
-  AppOrganizationSlugASlugVersionRoute: AppOrganizationSlugASlugVersionRoute,
+  AppFolderSlugASlugRoute: AppFolderSlugASlugRoute,
+  AppFolderSlugASlugVersionRoute: AppFolderSlugASlugVersionRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -395,6 +414,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiIdentitySplatRoute: ApiIdentitySplatRoute,
   ApiV1SplatRoute: ApiV1SplatRoute,
   RawSessionTokenRoute: RawSessionTokenRoute,
   RawThumbnailTokenRoute: RawThumbnailTokenRoute,

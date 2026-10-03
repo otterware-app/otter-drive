@@ -28,14 +28,14 @@ function AppLayout() {
   const pathname = useLocation({ select: (location) => location.pathname })
 
   const place: Place =
-    params.organizationSlug && params.slug
+    params.folderSlug && params.slug
       ? {
           kind: 'document',
-          teamSlug: params.organizationSlug,
+          folderSlug: params.folderSlug,
           slug: params.slug,
         }
       : pathname.startsWith('/settings')
-        ? { kind: 'settings', pane: params.pane ?? 'team' }
+        ? { kind: 'settings', pane: params.pane ?? 'folder' }
         : { kind: 'home' }
 
   function onSearchChange(update: Partial<DriveSearch>, replace = false) {

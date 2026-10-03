@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import { unzipSync } from 'fflate'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -34,7 +34,7 @@ const actor: AuthenticatedActor = {
   id: 'user-1',
   name: 'Test user',
   userId: 'user-1',
-  organizationId: 'org-1',
+  folderId: 'org-1',
   roles: ['owner'],
   permissions: {},
 }
@@ -51,21 +51,17 @@ async function hash(text: string) {
 async function fixture() {
   const db = new DatabaseSync(':memory:')
   databases.push(db)
-  for (const name of [
-    '0001_artifacts.sql',
-    '0003_artifact_thumbnails.sql',
-    '0004_team_artifacts.sql',
-  ]) {
+  for (const name of readdirSync(new URL('../../migrations/', import.meta.url))
+    .filter((f) => f.endsWith('.sql'))
+    .sort())
     db.exec(
       readFileSync(
         new URL(`../../migrations/${name}`, import.meta.url),
         'utf8',
       ),
     )
-  }
-  db.exec(
-    "CREATE TABLE organization (id TEXT PRIMARY KEY, slug TEXT); INSERT INTO organization VALUES ('org-1', 'test')",
-  )
+  db.exec(`INSERT INTO user(id,name,email,emailVerified,createdAt,updatedAt) VALUES('user-1','Test','test@example.com',1,'2026-01-01','2026-01-01');
+    INSERT INTO folder(id,name,slug,owner_user_id,kind,created_at,updated_at) VALUES('org-1','Test','test','user-1','personal','2026-01-01','2026-01-01');`)
   function prepare(sql: string) {
     let values: Array<string | number | null> = []
     const statement = {
@@ -152,7 +148,7 @@ async function fixture() {
   } as unknown as Env
   const now = new Date().toISOString()
   db.prepare(
-    `INSERT INTO artifact (id, organization_id, owner_user_id, created_by_actor_type, created_by_actor_id, slug, title, state, current_version_id, version_count, created_at, updated_at)
+    `INSERT INTO artifact (id, folder_id, owner_user_id, created_by_actor_type, created_by_actor_id, slug, title, state, current_version_id, version_count, created_at, updated_at)
     VALUES ('artifact-1', 'org-1', 'user-1', 'user', 'user-1', 'roadmap', 'Roadmap', 'published', 'version-2', 2, ?, ?)`,
   ).run(now, now)
   for (const number of [1, 2]) {
@@ -378,13 +374,13 @@ describe('publishing document edits', () => {
     ).toBe(2)
   })
 
-  it('denies edits to viewers and callers from another organization', async () => {
+  it('denies edits to viewers and callers from another folder', async () => {
     const { create, env } = await fixture()
     await expect(
       create(1, 2, { ...actor, roles: ['viewer'] }),
     ).rejects.toMatchObject({ status: 403 })
     await expect(
-      create(1, 2, { ...actor, organizationId: 'other-org' }),
+      create(1, 2, { ...actor, folderId: 'other-org' }),
     ).rejects.toMatchObject({ status: 404 })
     expect(env.ARTIFACTS.put).not.toHaveBeenCalled()
   })

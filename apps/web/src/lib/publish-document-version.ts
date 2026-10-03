@@ -12,7 +12,7 @@ export async function publishDocumentVersion(input: {
   entryPath: string
   baseVersion: number
   expectedCurrentVersion: number
-  organizationId: string
+  folderId: string
   slug: string
 }): Promise<number> {
   const digest = await crypto.subtle.digest(
@@ -42,7 +42,7 @@ export async function publishDocumentVersion(input: {
       `/api/v1/artifacts/${encodeURIComponent(input.slug)}/uploads`,
       {
         method: 'POST',
-        organizationId: input.organizationId,
+        folderId: input.folderId,
         body: JSON.stringify(manifest),
       },
     ),
@@ -64,7 +64,7 @@ export async function publishDocumentVersion(input: {
         multipartUploadPartResponseSchema.parse(
           await api<unknown>(url.toString(), {
             method: 'PUT',
-            organizationId: input.organizationId,
+            folderId: input.folderId,
             headers,
             body: input.blob.slice(start, start + remote.partSize),
           }),
@@ -73,13 +73,13 @@ export async function publishDocumentVersion(input: {
     }
     await api<void>(`${remote.uploadUrl}/complete`, {
       method: 'POST',
-      organizationId: input.organizationId,
+      folderId: input.folderId,
       body: JSON.stringify({ parts }),
     })
   } else {
     await api<void>(remote.uploadUrl, {
       method: 'PUT',
-      organizationId: input.organizationId,
+      folderId: input.folderId,
       headers,
       body: input.blob,
     })
@@ -87,7 +87,7 @@ export async function publishDocumentVersion(input: {
   return completeUploadResponseSchema.parse(
     await api<unknown>(
       `/api/v1/uploads/${encodeURIComponent(session.id)}/complete`,
-      { method: 'POST', organizationId: input.organizationId },
+      { method: 'POST', folderId: input.folderId },
     ),
   ).data.version.number
 }

@@ -12,7 +12,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 const input = {
-  organizationId: 'org-1',
+  folderId: 'org-1',
   slug: 'roadmap',
   version: 1,
   entryPath: 'README.md',
@@ -30,11 +30,11 @@ function setup() {
 }
 
 describe('document content loading', () => {
-  it('reuses immutable versions while keeping organizations and versions separate', async () => {
+  it('reuses immutable versions while keeping folders and versions separate', async () => {
     const fetcher = vi.fn(
       async (path: string, init: RequestInit) =>
         new Response(
-          `${new Headers(init.headers).get('x-otterdrive-organization')}:${new URL(path, 'https://drive.otterware.app').searchParams.get('version')}`,
+          `${new Headers(init.headers).get('x-otterdrive-folder')}:${new URL(path, 'https://drive.otterware.app').searchParams.get('version')}`,
         ),
     )
     vi.stubGlobal('fetch', fetcher)
@@ -51,7 +51,7 @@ describe('document content loading', () => {
       expect(result.current.data).toEqual({ kind: 'text', text: 'org-1:1' }),
     )
     expect(fetcher).toHaveBeenCalledTimes(2)
-    rerender({ ...input, organizationId: 'org-2' })
+    rerender({ ...input, folderId: 'org-2' })
     await waitFor(() =>
       expect(result.current.data).toEqual({ kind: 'text', text: 'org-2:1' }),
     )

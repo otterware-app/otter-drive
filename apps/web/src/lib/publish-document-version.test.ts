@@ -6,7 +6,7 @@ afterEach(() => vi.unstubAllGlobals())
 const input = () => ({
   blob: new Blob(['abcde'], { type: 'text/markdown' }),
   entryPath: 'docs/README.md',
-  organizationId: 'org-test',
+  folderId: 'org-test',
   slug: 'roadmap',
   baseVersion: 1,
   expectedCurrentVersion: 4,
@@ -25,7 +25,7 @@ const version = {
 }
 const artifact = {
   id: 'artifact-1',
-  organizationId: 'org-test',
+  folderId: 'org-test',
   ownerUserId: null,
   slug: 'roadmap',
   title: 'Roadmap',
@@ -96,7 +96,7 @@ describe('publishDocumentVersion', () => {
     expect(manifest.files[0].sha256).toMatch(/^[a-f0-9]{64}$/)
     expect(fetcher).toHaveBeenCalledTimes(3)
     for (const [, init] of fetcher.mock.calls)
-      expect(new Headers(init?.headers).get('x-otterdrive-organization')).toBe(
+      expect(new Headers(init?.headers).get('x-otterdrive-folder')).toBe(
         'org-test',
       )
   })
@@ -125,7 +125,7 @@ describe('publishDocumentVersion', () => {
       '/api/v1/uploads/upload-1/complete',
     )
     for (const [, init] of fetcher.mock.calls)
-      expect(new Headers(init?.headers).get('x-otterdrive-organization')).toBe(
+      expect(new Headers(init?.headers).get('x-otterdrive-folder')).toBe(
         'org-test',
       )
   })

@@ -57,7 +57,7 @@ function setup() {
   const hook = renderHook(
     (props: { version: number; enabled: boolean }) =>
       useContentSession({
-        organizationId: 'org-test',
+        folderId: 'org-test',
         slug: 'roadmap',
         ...props,
       }),
@@ -93,7 +93,7 @@ describe('content session lifecycle', () => {
     )
     expect(
       new Headers(fetcher.mock.calls[0]?.[1]?.headers).get(
-        'x-otterdrive-organization',
+        'x-otterdrive-folder',
       ),
     ).toBe('org-test')
     await act(async () => {

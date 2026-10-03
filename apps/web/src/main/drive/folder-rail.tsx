@@ -24,9 +24,9 @@ import {
 import { HintTooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { shortcutLabel, type KeybindingCommand } from '../keybindings/commands'
-import type { Team } from '../teams'
-import { NewTeamDialog } from './new-team-dialog'
-import { TeamMark, UserAvatar } from './team-mark'
+import type { Folder } from '../folders'
+import { NewFolderDialog } from './new-folder-dialog'
+import { FolderMark, UserAvatar } from './folder-mark'
 
 /** A rail button: a square that lights up on hover, and stays lit where you are. */
 const RAIL_BUTTON =
@@ -39,35 +39,33 @@ export function signOut() {
   })
 }
 
-/** Platform administrators are the only ones who can create teams. */
-export function useCanCreateTeams(): boolean {
-  const session = authClient.useSession()
-  return (session.data?.user as { role?: string } | undefined)?.role === 'admin'
+export function useCanCreateFolders(): boolean {
+  return Boolean(authClient.useSession().data?.user)
 }
 
 /**
  * The rail down the window's left edge (Otter Mail's mailbox rail): your
- * teams, then who you are at the bottom, with the app's menu. It stays when
- * the sidebar hides, so switching teams never needs the sidebar.
+ * folders, then who you are at the bottom, with the app's menu. It stays when
+ * the sidebar hides, so switching folders never needs the sidebar.
  */
-export function TeamRail({
-  teams,
-  currentTeamId,
+export function FolderRail({
+  folders,
+  currentFolderId,
   settingsOpen,
-  onSelectTeam,
+  onSelectFolder,
 }: {
-  teams: Team[]
-  /** The team showing; none is lit while Settings is. */
-  currentTeamId: string | null
+  folders: Folder[]
+  /** The folder showing; none is lit while Settings is. */
+  currentFolderId: string | null
   settingsOpen: boolean
-  onSelectTeam: (team: Team) => void
+  onSelectFolder: (folder: Folder) => void
 }) {
-  const [newTeamOpen, setNewTeamOpen] = useState(false)
-  const canCreateTeams = useCanCreateTeams()
+  const [newFolderOpen, setNewFolderOpen] = useState(false)
+  const canCreateFolders = useCanCreateFolders()
 
   return (
     <nav
-      aria-label="Teams"
+      aria-label="Drives"
       data-app-sidebar=""
       className="flex w-(--workspace-rail-width) shrink-0 flex-col items-center pb-(--sidebar-content-inset) text-sidebar-foreground"
     >
@@ -78,41 +76,43 @@ export function TeamRail({
         className="h-(--workspace-topbar-height) w-full shrink-0"
       />
       <div className="mt-(--radius-xl) flex min-h-0 flex-col items-center gap-1 overflow-y-auto">
-        {teams.map((team, index) => {
-          const selected = !settingsOpen && team.id === currentTeamId
+        {folders.map((folder, index) => {
+          const selected = !settingsOpen && folder.id === currentFolderId
           return (
             <HintTooltip
-              key={team.id}
-              label={team.name}
+              key={folder.id}
+              label={folder.name}
               hint={
                 index < 9
-                  ? shortcutLabel(`team.jump.${index + 1}` as KeybindingCommand)
+                  ? shortcutLabel(
+                      `folder.jump.${index + 1}` as KeybindingCommand,
+                    )
                   : undefined
               }
               side="right"
             >
               <button
                 type="button"
-                aria-label={team.name}
+                aria-label={folder.name}
                 aria-current={selected ? 'page' : undefined}
-                onClick={() => onSelectTeam(team)}
+                onClick={() => onSelectFolder(folder)}
                 className={cn(RAIL_BUTTON, selected && RAIL_BUTTON_SELECTED)}
               >
-                <TeamMark
-                  team={team}
+                <FolderMark
+                  folder={folder}
                   className="size-6 rounded-md text-[10px]"
                 />
               </button>
             </HintTooltip>
           )
         })}
-        {canCreateTeams ? (
-          <HintTooltip label="New team" side="right">
+        {canCreateFolders ? (
+          <HintTooltip label="New shared drive" side="right">
             <button
               type="button"
-              aria-label="New team"
+              aria-label="New shared drive"
               className={RAIL_BUTTON}
-              onClick={() => setNewTeamOpen(true)}
+              onClick={() => setNewFolderOpen(true)}
             >
               <PlusIcon className="size-4.5" />
             </button>
@@ -121,7 +121,11 @@ export function TeamRail({
       </div>
       <span className="flex-1" />
       <AccountMenu active={settingsOpen} />
-      <NewTeamDialog open={newTeamOpen} onOpenChange={setNewTeamOpen} />
+      <NewFolderDialog
+        kind="shared"
+        open={newFolderOpen}
+        onOpenChange={setNewFolderOpen}
+      />
     </nav>
   )
 }
@@ -206,7 +210,10 @@ function AccountMenu({ active }: { active: boolean }) {
         <DropdownMenuItem
           icon={<SettingsIcon />}
           onClick={() =>
-            void navigate({ to: '/settings/$pane', params: { pane: 'team' } })
+            void navigate({
+              to: '/settings/$pane',
+              params: { pane: 'account' },
+            })
           }
         >
           Settings

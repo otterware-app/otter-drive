@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils'
 import { shortcutLabel } from '../keybindings/commands'
 import { useCommandHandlers } from '../keybindings/dispatch'
 import { TitleBand } from '../top-bar'
-import type { Team } from '../teams'
+import type { Folder } from '../folders'
 import { DocumentMenuItems } from './document-menu'
 import {
   KIND_META,
@@ -67,7 +67,7 @@ const SORTS = [
  * (or J/K) walk the list, opening as they go.
  */
 export function DocumentList({
-  team,
+  folder,
   documents,
   totalInView,
   loading,
@@ -78,7 +78,7 @@ export function DocumentList({
   searchRef,
   onSearchChange,
 }: {
-  team: Team | null
+  folder: Folder | null
   /** What shows, after search, kind and sort. */
   documents: Artifact[]
   /** The view's documents before search and kind. */
@@ -119,10 +119,10 @@ export function DocumentList({
   }, [searchRef])
 
   const open = (artifact: Artifact, replace = false) => {
-    if (!team) return
+    if (!folder) return
     void navigate({
-      to: '/$organizationSlug/a/$slug',
-      params: { organizationSlug: team.slug, slug: artifact.slug },
+      to: '/$folderSlug/a/$slug',
+      params: { folderSlug: folder.slug, slug: artifact.slug },
       search: (current) => ({ ...current, sheet: undefined }),
       replace,
     })
@@ -157,9 +157,9 @@ export function DocumentList({
   })
 
   const prefetch = (artifact: Artifact) => {
-    if (team)
+    if (folder)
       void queryClient.prefetchQuery(
-        artifactBootstrapQuery(team.id, artifact.slug),
+        artifactBootstrapQuery(folder.id, artifact.slug),
       )
   }
 
@@ -185,7 +185,7 @@ export function DocumentList({
               type="text"
               autoFocus={!query}
               value={query}
-              placeholder={`Search ${team?.name ?? 'documents'}`}
+              placeholder={`Search ${folder?.name ?? 'documents'}`}
               aria-label="Search documents"
               spellCheck={false}
               onChange={(event) =>
@@ -233,12 +233,12 @@ export function DocumentList({
               {summary}
             </div>
             <HintTooltip
-              label="Search this team"
+              label="Search this folder"
               hint={shortcutLabel('search.focus')}
               side="bottom"
             >
               <IconButton
-                label="Search this team"
+                label="Search this folder"
                 onClick={() => {
                   setSearching(true)
                   requestAnimationFrame(() => searchRef.current?.focus())
@@ -303,7 +303,7 @@ export function DocumentList({
             <DocumentRow
               key={artifact.id}
               artifact={artifact}
-              team={team!}
+              folder={folder!}
               selected={artifact.slug === selectedSlug}
               onPrefetch={() => prefetch(artifact)}
             />
@@ -408,19 +408,19 @@ export function DocumentThumb({
 
 function DocumentRow({
   artifact,
-  team,
+  folder,
   selected,
   onPrefetch,
 }: {
   artifact: Artifact
-  team: Team
+  folder: Folder
   selected: boolean
   onPrefetch: () => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const kind = KIND_META[documentKind(artifact)].one
   const version = artifact.currentVersion?.number ?? 1
-  const href = `/${team.slug}/a/${artifact.slug}`
+  const href = `/${folder.slug}/a/${artifact.slug}`
   const details = [
     kind,
     version > 1 ? `v${version}` : null,
@@ -438,8 +438,8 @@ function DocumentRow({
         <ContextMenuTrigger
           render={
             <Link
-              to="/$organizationSlug/a/$slug"
-              params={{ organizationSlug: team.slug, slug: artifact.slug }}
+              to="/$folderSlug/a/$slug"
+              params={{ folderSlug: folder.slug, slug: artifact.slug }}
               search={(current) => ({ ...current, sheet: undefined })}
               data-slug={artifact.slug}
               aria-current={selected ? 'page' : undefined}
@@ -491,13 +491,13 @@ function DocumentRow({
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>
-          <DocumentMenuItems artifact={artifact} team={team} href={href} />
+          <DocumentMenuItems artifact={artifact} folder={folder} href={href} />
         </ContextMenuContent>
       </ContextMenu>
       {/* The row's menu, where its date sits until it's hovered. */}
       <RowMenu
         artifact={artifact}
-        team={team}
+        folder={folder}
         href={href}
         open={menuOpen}
         onOpenChange={setMenuOpen}
@@ -508,13 +508,13 @@ function DocumentRow({
 
 function RowMenu({
   artifact,
-  team,
+  folder,
   href,
   open,
   onOpenChange,
 }: {
   artifact: Artifact
-  team: Team
+  folder: Folder
   href: string
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -538,7 +538,7 @@ function RowMenu({
         <EllipsisIcon className="size-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DocumentMenuItems artifact={artifact} team={team} href={href} />
+        <DocumentMenuItems artifact={artifact} folder={folder} href={href} />
       </DropdownMenuContent>
     </DropdownMenu>
   )

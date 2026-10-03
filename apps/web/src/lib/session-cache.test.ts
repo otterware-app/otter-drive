@@ -27,12 +27,10 @@ describe('session cache', () => {
   it('removes only the requested cache namespace', () => {
     writeSessionCache('otterdrive:artifact:one', 1)
     writeSessionCache('otterdrive:artifact:two', 2)
-    writeSessionCache('otterdrive:organizations:user', 3)
+    writeSessionCache('otterdrive:folders:user', 3)
     removeSessionCachePrefix('otterdrive:artifact:')
     expect(sessionStorage.getItem('otterdrive:artifact:one')).toBeNull()
     expect(sessionStorage.getItem('otterdrive:artifact:two')).toBeNull()
-    expect(
-      sessionStorage.getItem('otterdrive:organizations:user'),
-    ).not.toBeNull()
+    expect(sessionStorage.getItem('otterdrive:folders:user')).not.toBeNull()
   })
 })

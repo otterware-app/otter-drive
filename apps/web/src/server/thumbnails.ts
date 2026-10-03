@@ -111,6 +111,7 @@ export async function generateThumbnail(
   entryPath: string,
 ): Promise<string> {
   const token = await signContentGrant(env, {
+    principal: { service: true },
     artifactId,
     versionId,
     entryPath,

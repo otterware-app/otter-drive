@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { teamColor, teamInitials, type Team } from '../teams'
+import { folderColor, folderInitials, type Folder } from '../folders'
 
-/** A team's mark: its initials on its color (Otter Mail's account picture). */
-export function TeamMark({
-  team,
+/** A folder's mark: its initials on its color (Otter Mail's account picture). */
+export function FolderMark({
+  folder,
   className,
 }: {
-  team: Pick<Team, 'id' | 'name'>
+  folder: Pick<Folder, 'id' | 'name'>
   className?: string
 }) {
   return (
@@ -17,9 +17,9 @@ export function TeamMark({
         'inline-flex size-5 shrink-0 items-center justify-center rounded-md text-[9px] leading-none font-bold text-white select-none',
         className,
       )}
-      style={{ background: teamColor(team) }}
+      style={{ background: folderColor(folder) }}
     >
-      {teamInitials(team)}
+      {folderInitials(folder)}
     </span>
   )
 }

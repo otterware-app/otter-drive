@@ -124,7 +124,7 @@ export function SidebarSection({
   )
 }
 
-/** The sidebar's heading: the team's name, or "Settings" (Codex's "Codex"),
+/** The sidebar's heading: the folder's name, or "Settings" (Codex's "Codex"),
  *  past the panel's rounded corner. */
 export function SidebarHeading({ children }: { children: ReactNode }) {
   return (

@@ -1,15 +1,15 @@
 # Otter Drive
 
-Otter Drive is a private, organization-aware artifact platform for people and agents. It provides a TanStack Start web app, immutable artifact versioning on Cloudflare, and the `otterdrive` CLI.
+Otter Drive is a personal and shared drive for documents for people and agents. It provides a TanStack Start web app, immutable artifact versioning on Cloudflare, and the `otterdrive` CLI.
 
 ## What is included
 
 - `apps/web` — TanStack Start application and versioned REST API on Cloudflare Workers.
 - `apps/cli` — installable Node.js CLI with browser/device login and JSON output.
 - `packages/contracts` — Zod request and response contracts shared by both clients.
-- Cloudflare D1 — users, sessions, organizations, memberships, API keys, artifact metadata, versions, uploads, and audit events.
+- Cloudflare D1 — users, sessions, recursive folders, shared drive invitations, API keys, artifact metadata, versions, uploads, and audit events.
 - Private Cloudflare R2 — immutable artifact file bodies.
-- Better Auth — closed registration, optional Google login, organizations, invitations, device authorization, and hashed organization API keys.
+- Better Auth — Google sign-in through the shared Otter identity, device authorization, and hashed personal API keys.
 
 Uploaded HTML is served from `usercontent.otterware.app`, not the authenticated application origin. Short-lived, version-scoped grants protect the private R2 objects and keep executable content away from application cookies.
 
@@ -31,7 +31,7 @@ pnpm db:migrate:local
 pnpm dev
 ```
 
-The development server runs at `http://localhost:3000`. There is no public administrator bootstrap: the deployment operator seeds the initial account directly into D1. Every other new identity must match a pending organization invitation. When Google credentials are configured, invited collaborators may authenticate with Google instead of a password.
+The development server runs at `http://localhost:3000`. There is no public administrator bootstrap: the deployment operator seeds the initial account directly into D1. Every verified Otter identity can create a personal drive. Shared drives grant access only to their invited members. Sign-in uses the shared Google-backed Otter identity hosted by Mail; Drive does not accept passwords.
 
 Run all verification:
 
@@ -87,18 +87,18 @@ Authenticate a human-controlled machine with the browser device flow:
 ```bash
 otterdrive auth login --url https://drive.otterware.app
 otterdrive auth status
-otterdrive organizations list
-otterdrive organizations use <organization-id>
+otterdrive folders list
+otterdrive folders use <folder-id>
 ```
 
-For an unattended organization agent, create a scoped key in the web settings and provide it through the environment rather than placing it in a prompt:
+For an unattended agent, create a personal key in the web settings and provide it through the environment rather than placing it in a prompt:
 
 ```bash
 export OTTERDRIVE_TOKEN='otw_...'
 otterdrive artifacts list
 ```
 
-Device login represents a user and can access artifacts in all of their organizations. Organization API keys can only access artifacts in their organization.
+Device login and personal API keys follow the user’s current drive access. Keys migrated from organizations retain a scope restricting them to that drive and its descendants.
 
 ## Publish the CLI
 
@@ -176,35 +176,36 @@ Configure production secrets:
 ```bash
 pnpm exec wrangler secret put BETTER_AUTH_SECRET
 pnpm exec wrangler secret put CONTENT_SIGNING_KEY
-pnpm exec wrangler secret put RESEND_API_KEY
 ```
 
-Password reset emails are delivered through Resend. Add and verify
-`otterware.app` in Resend, including its DKIM and SPF records, before deploying.
-The sender is configured by `EMAIL_FROM` in `apps/web/wrangler.jsonc`; it must
-use the verified domain. For local reset-email testing, also set
-`RESEND_API_KEY` in `apps/web/.dev.vars`.
+Drive uses the existing Otter identity provider. `OTTER_AUTH_URL` in `wrangler.jsonc` points to
+`https://relay.mail.otterware.app/v1/auth`. Its first-party client is `otter-drive`, with the exact
+callback `https://drive.otterware.app/api/auth/callback/otter`, S256 PKCE, and no client secret.
+No Google credentials or email delivery service are needed in Drive.
 
-Set `ADMIN_EMAIL` in `wrangler.jsonc`, apply the migrations, and seed the administrator from an authenticated deployment checkout. The command prompts for a password without accepting it in arguments or environment variables and refuses to overwrite an existing account:
+Set `ADMIN_EMAIL`, apply migrations, and verify the administrator's existing Otter subject
+through the identity service before seeding. The subject is an immutable user ID, not an email:
 
 ```bash
-pnpm admin:seed -- --remote --name "Chris Kafrouni"
+pnpm admin:seed -- --remote --otter-subject VERIFIED_OTTER_USER_ID --name "Administrator"
 ```
 
-Google OAuth is optional. To enable it for invited collaborators, set:
+For an existing administrator, add `--link-existing` after verifying ownership of both accounts.
+This changes the Drive user ID to the canonical Mail subject, transfers all ownership and attribution, preserves sessions and API key hashes, and removes the old password identity. Automatic account
+linking by matching emails is disabled. Register the existing user in Mail's `identity_apps`
+with `app_id = 'otter-drive'` before enabling the integration.
 
-```bash
-pnpm exec wrangler secret put GOOGLE_CLIENT_ID
-pnpm exec wrangler secret put GOOGLE_CLIENT_SECRET
-```
+Shared account deletion is available from Settings → Account → Manage account. It requires
+deleting personal documents and transferring or deleting owned shared drives first. Drive removes the user’s sessions, memberships and API keys; documents in other people’s shared drives remain. Revoking the Mail browser session
+also ends its associated Drive browser session through signed OIDC back-channel logout. Drive
+CLI sessions remain independent; shared account deletion ends those too.
 
-The Google OAuth redirect URI is:
+For local sign-in, use a local identity service and set `OTTER_AUTH_URL` in `.dev.vars`.
+Register the local callback in its local OAuth client. Do not add localhost or wildcard callbacks
+to the production client. `src/server/identity.test.ts` tests the real auth library and migrations
+against SQLite and a local mock OIDC issuer, including device login and API keys.
 
-```text
-https://drive.otterware.app/api/auth/callback/google
-```
-
-Apply schema changes to the production database before merging a migration:
+For this migration, back up D1 and prepare the tested Worker build first. The organization-to-folder schema change must be deployed together with the new Worker during a short maintenance window; an old Worker cannot run against the new schema. Apply migrations, re-key the verified administrator, and deploy immediately:
 
 ```bash
 pnpm db:migrate:remote
@@ -217,7 +218,9 @@ manual deploy from an authenticated checkout.
 
 Attach `drive.otterware.app` and `usercontent.otterware.app` as Worker custom domains. The raw-content handlers reject production requests that do not arrive on the configured content hostname.
 
-The seeded administrator signs in normally and creates the first organization from Settings. Later users must follow an organization invitation link and authenticate as the invited identity; arbitrary public signup is rejected by the server even if a client calls the authentication endpoint directly.
+Each person signs in with their existing Otter account and gets a private personal drive. Create a shared drive with the + in the drive rail, then invite Google email addresses in Settings → Shared drive access. Invitations grant view or edit access throughout the drive, including future nested folders. No invitation email is sent: copy its link to the collaborator. Only the owner manages access or transfers ownership; editors upload and edit documents. A folder’s parent can be changed within the same drive in Settings → Drives and folders.
+
+Migration `0006_personal_folders.sql` converts the existing `chris` namespace to the personal drive and `zentio` to a shared drive, preserving IDs, slugs and R2 keys. Organizations are removed from the auth model and database. Existing document URLs and CLI credentials remain valid. The old organization header and list endpoint are read compatibility for installed CLIs; new clients use `folders` and `x-otterdrive-folder`.
 
 ## Production trust boundary
 
@@ -239,7 +242,7 @@ Worker without a cross-origin redirect, so existing CLI bearer tokens and API
 keys keep working. Browser users sign in again on the new domain.
 
 CLI version 0.1.5 and newer recognizes saved production URLs on both old app
-hosts. Custom server URLs, credentials and selected organizations are preserved.
+hosts. Custom server URLs, credentials and selected folders are preserved.
 Profiles in `~/.config/otterware/config.json` are still copied to the `otterdrive`
 config directory on first use, respecting `XDG_CONFIG_HOME`. `OTTERDRIVE_*`
 variables take precedence over the supported legacy `OTTERWARE_*` variables.
@@ -248,11 +251,8 @@ and `.otterware.json` metadata files.
 
 Cloudflare Workers Builds must connect to `otterware-app/otter-drive`. The npm
 trusted publisher for `otterdrive` must use organization `otterware-app`,
-repository `otter-drive` and workflow `publish-cli.yml`. Google OAuth deployments
-must register `https://drive.otterware.app/api/auth/callback/google` before the
-new domain is enabled. Password reset emails use
-`Otter Drive <noreply@otterware.app>`; verify `otterware.app` in Resend before
-deploying this sender.
+repository `otter-drive` and workflow `publish-cli.yml`. Shared Otter sign-in registers
+`https://drive.otterware.app/api/auth/callback/otter` with the identity service.
 
 The existing Worker name `otterware`, D1 database `otterware`, R2 bucket
 `otterware-artifacts` and private `@otterware` workspace packages preserve the

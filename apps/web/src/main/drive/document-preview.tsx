@@ -19,13 +19,14 @@ const UniverEditor = lazy(
 )
 
 interface DocumentPreviewProps {
+  readOnly?: boolean
   actionsContainer?: HTMLDivElement | null | undefined
   kind: NativeDocumentKind
   entryPath: string
   expectedCurrentVersion?: number | undefined
   onSheetChange?: ((sheet: string | undefined) => void) | undefined
-  organizationId: string
-  organizationSlug: string
+  folderId: string
+  folderSlug: string
   selectedSheet?: string | undefined
   slug: string
   version: number
@@ -34,7 +35,7 @@ interface DocumentPreviewProps {
 export function DocumentPreview(props: DocumentPreviewProps) {
   return (
     <DocumentPreviewContent
-      key={`${props.organizationId}:${props.slug}:${props.version}:${props.entryPath}`}
+      key={`${props.folderId}:${props.slug}:${props.version}:${props.entryPath}`}
       {...props}
     />
   )
@@ -62,7 +63,7 @@ function DocumentPreviewContent(props: DocumentPreviewProps) {
     return <ContentLoading />
 
   if (content.data.kind === 'text' && !editing) {
-    const actions = (
+    const actions = props.readOnly ? null : (
       <Button size="sm" onClick={() => setEditing(true)}>
         <PencilIcon />
         Edit
@@ -98,12 +99,13 @@ function DocumentPreviewContent(props: DocumentPreviewProps) {
   return (
     <Suspense fallback={<ContentLoading />}>
       <UniverEditor
+        readOnly={props.readOnly}
         actionsContainer={props.actionsContainer}
         entryPath={props.entryPath}
         expectedCurrentVersion={props.expectedCurrentVersion ?? props.version}
         version={props.version}
-        organizationId={props.organizationId}
-        organizationSlug={props.organizationSlug}
+        folderId={props.folderId}
+        folderSlug={props.folderSlug}
         slug={props.slug}
         {...(content.data.kind === 'text'
           ? {
