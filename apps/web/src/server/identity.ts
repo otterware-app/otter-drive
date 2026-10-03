@@ -16,7 +16,12 @@ function otterKeys(env: Env) {
 async function verify(env: Env, token: string, maxTokenAge?: string) {
   return (
     await jwtVerify(token, otterKeys(env), {
-      issuer: env.OTTER_AUTH_URL,
+      // Existing Mail sessions may send a final logout during issuer cutover.
+      // Keys always come from the configured Accounts service, never the token.
+      issuer:
+        env.OTTER_AUTH_URL === 'https://accounts.otterware.app/v1/auth'
+          ? [env.OTTER_AUTH_URL, 'https://relay.mail.otterware.app/v1/auth']
+          : env.OTTER_AUTH_URL,
       audience: 'otter-drive',
       algorithms: ['RS256'],
       clockTolerance: 5,

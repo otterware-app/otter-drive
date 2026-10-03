@@ -179,7 +179,7 @@ pnpm exec wrangler secret put CONTENT_SIGNING_KEY
 ```
 
 Drive uses the existing Otter identity provider. `OTTER_AUTH_URL` in `wrangler.jsonc` points to
-`https://relay.mail.otterware.app/v1/auth`. Its first-party client is `otter-drive`, with the exact
+`https://accounts.otterware.app/v1/auth`. Its first-party client is `otter-drive`, with the exact
 callback `https://drive.otterware.app/api/auth/callback/otter`, S256 PKCE, and no client secret.
 No Google credentials or email delivery service are needed in Drive.
 
@@ -192,11 +192,11 @@ pnpm admin:seed -- --remote --otter-subject VERIFIED_OTTER_USER_ID --name "Admin
 
 For an existing administrator, add `--link-existing` after verifying ownership of both accounts.
 This changes the Drive user ID to the canonical Mail subject, transfers all ownership and attribution, preserves sessions and API key hashes, and removes the old password identity. Automatic account
-linking by matching emails is disabled. Register the existing user in Mail's `identity_apps`
+linking by matching emails is disabled. Register the existing user in Otter Accounts' `identity_apps`
 with `app_id = 'otter-drive'` before enabling the integration.
 
 Shared account deletion is available from Settings → Account → Manage account. It requires
-deleting personal documents and transferring or deleting owned shared drives first. Drive removes the user’s sessions, memberships and API keys; documents in other people’s shared drives remain. Revoking the Mail browser session
+deleting personal documents and transferring or deleting owned shared drives first. Drive removes the user’s sessions, memberships and API keys; documents in other people’s shared drives remain. Revoking the central Accounts browser session
 also ends its associated Drive browser session through signed OIDC back-channel logout. Drive
 CLI sessions remain independent; shared account deletion ends those too.
 
