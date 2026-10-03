@@ -1,7 +1,6 @@
 import { identityMigration } from '../src/server/identity-migration.ts'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -73,14 +72,9 @@ const statements = existing
 INSERT INTO user (id,name,email,emailVerified,createdAt,updatedAt,role,banned) VALUES (${sql(subject)},${sql(name)},${sql(email)},1,${sql(now)},${sql(now)},'admin',0);
 INSERT INTO account(id,accountId,providerId,userId,createdAt,updatedAt) VALUES (${sql(crypto.randomUUID())},${sql(subject)},'otter',${sql(subject)},${sql(now)},${sql(now)});`
 
-const directory = mkdtempSync(resolve(tmpdir(), 'otterdrive-identity-'))
-try {
-  const file = resolve(directory, 'identity.sql')
-  writeFileSync(file, statements, { mode: 0o600 })
-  run(['d1', 'execute', 'DB', target, '--yes', '--file', file])
-} finally {
-  rmSync(directory, { recursive: true, force: true })
-}
+// Use the transactional query endpoint. Remote --file uses D1's import
+// pipeline, which can split statements across transaction boundaries.
+run(['d1', 'execute', 'DB', target, '--yes', '--command', statements])
 process.stdout.write(
   existing
     ? 'Transferred the existing account, ownership, attribution, keys and sessions to the canonical Otter ID. Removed the old password identity.\n'
