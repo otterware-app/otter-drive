@@ -16,7 +16,8 @@
     "lint": "oxlint src",
     "format": "prettier --write .",
     "check": "prettier --check .",
-    "deploy": "pnpm run build && wrangler deploy",
+    "deploy": "pnpm run build && pnpm run release",
+    "release": "wrangler d1 migrations apply DB --remote && wrangler deploy",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
     "admin:seed": "node scripts/seed-admin.mjs"

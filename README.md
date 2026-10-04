@@ -217,10 +217,22 @@ For this migration, back up D1 and prepare the tested Worker build first. The or
 pnpm db:migrate:remote
 ```
 
-The web app deploys automatically: Cloudflare Workers Builds is connected to
-this repository and builds and deploys every push to `main` (it reports as the
-`Workers Builds: otterware` check on each commit). `pnpm deploy` remains for a
-manual deploy from an authenticated checkout.
+Merging to `main` releases the web app. Cloudflare Workers Builds is connected to
+this repository: for every push to `main` it builds, applies pending D1 migrations,
+then deploys the Worker (it reports as the `Workers Builds: otterware` check on each
+commit). If a migration fails, nothing is deployed and the live Worker keeps serving.
+Pull request builds only upload preview versions; they never migrate.
+
+Its settings live in the Cloudflare dashboard under Workers → otterware → Settings → Build:
+
+- Deploy command: `pnpm --filter @otterware/web run release`
+- API token: the defaults plus **Account → D1 → Edit**, which migrations need.
+
+Migrations run just before the new Worker goes live, so each one must work with the
+Worker already running: add tables, indexes and nullable columns freely; drop or rename
+only in a later release, once no deployed code reads them.
+
+`pnpm run deploy` releases the same way from an authenticated checkout.
 
 Attach `drive.otterware.app` and `usercontent.otterware.app` as Worker custom domains. The raw-content handlers reject production requests that do not arrive on the configured content hostname.
 

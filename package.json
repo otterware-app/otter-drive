@@ -13,7 +13,7 @@
     "dev": "pnpm --filter @otterware/web dev",
     "dev:serve": "pnpm --filter @otterware/web dev:serve",
     "dev:cli": "pnpm --dir apps/cli dev",
-    "deploy": "pnpm --filter @otterware/web deploy",
+    "deploy": "pnpm --filter @otterware/web run deploy",
     "db:migrate:local": "pnpm --dir apps/web db:migrate:local",
     "db:migrate:remote": "pnpm --dir apps/web db:migrate:remote",
     "admin:seed": "pnpm --dir apps/web admin:seed",

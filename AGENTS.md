@@ -5,6 +5,8 @@
 - Artifact files and published versions are immutable. Updates always create a version.
 - Raw uploaded content must be served from a cookie-isolated origin.
 - Do not expose Cloudflare, D1, R2, OAuth, or Better Auth secrets to the CLI.
+- Merging to `main` applies D1 migrations, then deploys. Write each migration to
+  work with the Worker that's live (expand now, contract in a later release).
 
 ## The web app (`apps/web/src`)
 
