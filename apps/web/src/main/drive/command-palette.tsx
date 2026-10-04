@@ -23,6 +23,8 @@ import {
   SunIcon,
   SunMoonIcon,
   UploadIcon,
+  UsersIcon,
+  FolderIcon,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import type { Artifact } from '@otterware/contracts'
@@ -30,7 +32,12 @@ import { Kbd } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { shortcutLabel, type KeybindingCommand } from '../keybindings/commands'
 import { PaneIcon } from '../top-bar'
-import type { Folder } from '../folders'
+import {
+  folderLabel,
+  folderPath,
+  useSharedWithMe,
+  type Folder,
+} from '../folders'
 import {
   KIND_META,
   documentKind,
@@ -98,6 +105,7 @@ type CommandPaletteProps = {
   currentFolder: Folder | null
   canCreateFolders: boolean
   onSelectFolder: (folder: Folder) => void
+  onOpenShared: () => void
   onNewFolder: () => void
   onToggleSidebar: () => void
 }
@@ -114,6 +122,7 @@ function PaletteCard({
   currentFolder,
   canCreateFolders,
   onSelectFolder,
+  onOpenShared,
   onNewFolder,
   onToggleSidebar,
 }: CommandPaletteProps) {
@@ -129,6 +138,7 @@ function PaletteCard({
     inputRef.current?.focus()
   }, [page])
 
+  const shared = useSharedWithMe()
   const documentQueries = useQueries({
     queries: folders.map((folder) => ({
       ...documentsQuery(folder.id, 'active'),
@@ -182,26 +192,31 @@ function PaletteCard({
       ])
     }
 
-    const openDocument = (folder: Folder, artifact: Artifact) =>
-      void navigate({
-        to: '/$folderSlug/a/$slug',
-        params: { folderSlug: folder.slug, slug: artifact.slug },
-      })
-    const documentItem = (folder: Folder, artifact: Artifact): PaletteItem => {
+    const where = (folder: Folder) =>
+      folderPath(folders, folder).map(folderLabel).join(' › ')
+    const documentItem = (
+      place: { slug: string; label: string },
+      artifact: Artifact,
+    ): PaletteItem => {
       const Icon = KIND_META[documentKind(artifact)].icon
       return {
-        id: `document:${folder.id}:${artifact.id}`,
+        id: `document:${artifact.id}`,
         icon: <Icon className={ICON} />,
         title: artifact.title,
-        description:
-          folders.length > 1
-            ? `${folder.name} · ${artifact.description || artifact.slug}`
-            : artifact.description || artifact.slug,
-        keywords: `${artifact.slug} ${folder.name}`,
+        description: `${place.label} · ${artifact.description || artifact.slug}`,
+        keywords: `${artifact.slug} ${place.label}`,
         trailing: formatListDate(artifact.updatedAt),
-        run: () => openDocument(folder, artifact),
+        run: () =>
+          void navigate({
+            to: '/$folderSlug/a/$slug',
+            params: { folderSlug: place.slug, slug: artifact.slug },
+          }),
       }
     }
+    const inFolder = (folder: Folder) => ({
+      slug: folder.slug,
+      label: where(folder),
+    })
 
     const sc = (command: KeybindingCommand) => shortcutLabel(command)
     const actions: PaletteItem[] = [
@@ -224,6 +239,13 @@ function PaletteCard({
             },
           ]
         : []),
+      {
+        id: 'shared-with-me',
+        icon: <UsersIcon className={ICON} />,
+        title: 'Shared with me',
+        keywords: 'shares others people go to',
+        run: onOpenShared,
+      },
       {
         id: 'sidebar',
         icon: <PaneIcon side="left" open className={ICON} />,
@@ -255,18 +277,28 @@ function PaletteCard({
       },
     ]
 
-    const folderItems: PaletteItem[] = folders.map((folder, index) => ({
-      id: `folder:${folder.id}`,
-      icon: <FolderMark folder={folder} className="size-4 text-[7px]" />,
-      title: folder.name,
-      keywords: 'switch folder go to',
-      shortcut:
-        index < 9
-          ? sc(`folder.jump.${index + 1}` as KeybindingCommand)
-          : undefined,
-      checked: folder.id === currentFolder?.id,
-      run: () => onSelectFolder(folder),
-    }))
+    const drives = folders.filter((folder) => !folder.parentId)
+    const folderItems: PaletteItem[] = folders.map((folder) => {
+      const index = drives.indexOf(folder)
+      const parent = folders.find((item) => item.id === folder.parentId)
+      return {
+        id: `folder:${folder.id}`,
+        icon: folder.parentId ? (
+          <FolderIcon className={ICON} />
+        ) : (
+          <FolderMark folder={folder} className="size-4 text-[7px]" />
+        ),
+        title: folderLabel(folder),
+        ...(parent ? { description: where(parent) } : {}),
+        keywords: `switch folder drive go to ${folder.kind === 'shared' ? 'shared drive' : ''}`,
+        shortcut:
+          index >= 0 && index < 9
+            ? sc(`folder.jump.${index + 1}` as KeybindingCommand)
+            : undefined,
+        checked: folder.id === currentFolder?.id,
+        run: () => onSelectFolder(folder),
+      }
+    })
 
     if (!needle) {
       const recent = (
@@ -283,14 +315,22 @@ function PaletteCard({
                 id: 'recent',
                 label: 'Recently updated',
                 items: recent.map((artifact) =>
-                  documentItem(currentFolder, artifact),
+                  documentItem(inFolder(currentFolder), artifact),
                 ),
               },
             ]
           : []),
         { id: 'actions', label: 'Actions', items: actions },
-        ...(folders.length > 1
-          ? [{ id: 'folders', label: 'Folders', items: folderItems }]
+        ...(drives.length > 1
+          ? [
+              {
+                id: 'folders',
+                label: 'Drives',
+                items: folderItems.filter((item) =>
+                  drives.some((drive) => item.id === `folder:${drive.id}`),
+                ),
+              },
+            ]
           : []),
       ]
     }
@@ -299,9 +339,25 @@ function PaletteCard({
       {
         id: 'documents',
         label: 'Documents',
-        items: documentsByFolder.flatMap(({ folder, documents }) =>
-          documents.map((artifact) => documentItem(folder, artifact)),
-        ),
+        items: [
+          ...documentsByFolder.flatMap(({ folder, documents }) =>
+            documents.map((artifact) =>
+              documentItem(inFolder(folder), artifact),
+            ),
+          ),
+          // Documents shared with you on their own, outside your folders.
+          ...shared.listed.flatMap((item) =>
+            item.artifact &&
+            !folders.some((folder) => folder.id === item.artifact!.folderId)
+              ? [
+                  documentItem(
+                    { slug: item.folderSlug, label: 'Shared with me' },
+                    item.artifact,
+                  ),
+                ]
+              : [],
+          ),
+        ],
       },
     ]).map((group) => ({
       ...group,

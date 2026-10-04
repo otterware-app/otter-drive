@@ -8,13 +8,21 @@ import {
   type ReactNode,
 } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import type { Artifact } from '@otterware/contracts'
+import type { Artifact, SharedItem } from '@otterware/contracts'
+import { EmptyState } from '@/components/ui/empty-state'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
+import { UsersIcon } from 'lucide-react'
 import { CommandPalette } from './drive/command-palette'
 import { DeleteDocumentDialogHost } from './drive/delete-dialog'
-import { DocumentList, requestOpenSearch } from './drive/document-list'
 import {
+  Breadcrumbs,
+  DocumentList,
+  requestOpenSearch,
+  type ListEntry,
+} from './drive/document-list'
+import {
+  documentKind,
   inView,
   useDocumentActions,
   useDocuments,
@@ -23,8 +31,10 @@ import {
 } from './drive/documents'
 import { DriveSidebar } from './drive/drive-sidebar'
 import { DropOverlay, useDropUpload } from './drive/drop-upload'
-import { NewFolderDialog } from './drive/new-folder-dialog'
+import { FolderDialogsHost } from './drive/folder-dialogs'
+import { NewFolderDialog, NewFolderDialogHost } from './drive/new-folder-dialog'
 import { FolderRail, useCanCreateFolders } from './drive/folder-rail'
+import { ShareDialogHost } from './drive/share-dialog'
 import { UploadDialogHost, requestUpload } from './drive/upload-dialog'
 import { useCommandHandlers } from './keybindings/dispatch'
 import {
@@ -36,15 +46,27 @@ import {
 import { SettingsNav } from './settings/settings-nav'
 import { useFolderRole } from './folder-role'
 import { SidebarControl } from './top-bar'
-import { driveForFolder, useFolders, type Folder } from './folders'
+import {
+  driveForFolder,
+  folderLabel,
+  folderPath,
+  isInSharedFolder,
+  useFolders,
+  useSharedWithMe,
+  type Folder,
+} from './folders'
 
 /**
  * The window (Otter Mail's home-view.tsx): ChatGPT-style chrome where the
- * frame wears the sidebar's surface, the rail of folders runs down its left
+ * frame wears the sidebar's surface, the rail of drives runs down its left
  * edge, and the columns after it share one inset panel with rounded
- * corners: the sidebar (views, or Settings' sections), the list, and the
- * main pane (the overview, a document, or a Settings pane) that the routes
- * fill.
+ * corners: the sidebar (folders and views, or Settings' sections), the list,
+ * and the main pane (the overview, a document, or a Settings pane) that the
+ * routes fill.
+ *
+ * The list shows the open folder (`?folder=` in the URL, so Back walks
+ * folders), or "Shared with me" (`?view=shared`): the folders and documents
+ * other people shared with you, Google Drive's way.
  */
 
 export type Place =
@@ -53,16 +75,25 @@ export type Place =
   | { kind: 'settings'; pane: string }
 
 interface DriveContextValue {
-  /** The folder showing: the open document's, else the active one. */
+  /** The folder showing: the open document's, else the open one. */
   folder: Folder | null
   folders: Folder[]
+  /** Your folders are known. */
+  foldersLoaded: boolean
   /** Folders are known and there are none. */
   noFolder: boolean
-  /** A document's folder isn't one of yours. */
-  unknownFolderSlug: string | null
   /** The folder's active documents (the overview's and the counts'). */
   documents: Artifact[]
   documentsLoading: boolean
+  /** "Shared with me" is showing. */
+  sharedView: boolean
+  /** What other people shared with you, archived documents included. */
+  sharedItems: SharedItem[]
+  /** What Shared with me lists. */
+  sharedListed: SharedItem[]
+  sharedLoading: boolean
+  openFolder: (folder: Folder) => void
+  openShared: () => void
   narrow: boolean
   /** The viewer has the window: sidebar and list hidden. */
   expanded: boolean
@@ -90,6 +121,10 @@ const PANE_LIST =
 const PANE_FRAME =
   'flex min-h-0 shrink-0 overflow-hidden transition-[width] duration-200 ease-out'
 
+function matches(needle: string, ...values: string[]) {
+  return !needle || values.join(' ').toLowerCase().includes(needle)
+}
+
 export function DriveHome({
   place,
   search,
@@ -105,25 +140,51 @@ export function DriveHome({
   const navigate = useNavigate()
   const narrow = useIsNarrow()
   const { activeFolder, loaded, folders, selectFolder } = useFolders()
+  const shared = useSharedWithMe()
   const canCreateFolders = useCanCreateFolders()
 
-  // The folder showing: the open document's (by its URL), else the active one.
+  // The folder showing: the open document's (by its URL), else the open one.
   const routeFolder =
     place.kind === 'document'
       ? (folders.find((folder) => folder.slug === place.folderSlug) ?? null)
       : null
-  const folder = place.kind === 'document' ? routeFolder : activeFolder
-  const unknownFolderSlug =
-    place.kind === 'document' && loaded && !routeFolder
-      ? place.folderSlug
-      : null
+  // A document shared on its own lives in a folder you can't open: the list
+  // shows what's shared with you instead.
+  const sharedDocumentOpen = place.kind === 'document' && loaded && !routeFolder
+  const sharedView = search.view === 'shared' || sharedDocumentOpen
+  const folder = sharedView
+    ? null
+    : place.kind === 'document'
+      ? routeFolder
+      : activeFolder
+
+  // The open folder follows the URL (links, Back), and the URL names the
+  // open folder once it's known.
+  useEffect(() => {
+    if (!loaded || place.kind !== 'home' || search.view === 'shared') return
+    if (search.folder && search.folder !== activeFolder?.id) {
+      if (folders.some((item) => item.id === search.folder))
+        void selectFolder(search.folder)
+    } else if (!search.folder && activeFolder)
+      onSearchChange({ folder: activeFolder.id }, true)
+  }, [
+    loaded,
+    place.kind,
+    search.view,
+    search.folder,
+    activeFolder,
+    folders,
+    selectFolder,
+    onSearchChange,
+  ])
 
   // A document opened from another folder (a link, the palette) makes that
-  // folder the active one, so home, uploads and Settings follow it.
+  // folder the open one, so closing it, uploads and Settings follow it.
   const selecting = useRef<string | null>(null)
   useEffect(() => {
     if (!routeFolder || !activeFolder || routeFolder.id === activeFolder.id)
       return
+    if (search.view === 'shared') return
     if (selecting.current === routeFolder.id) return
     selecting.current = routeFolder.id
     // A failure keeps the mark, so it isn't retried on every render.
@@ -133,23 +194,102 @@ export function DriveHome({
       },
       () => undefined,
     )
-  }, [routeFolder, activeFolder, selectFolder])
+  }, [routeFolder, activeFolder, selectFolder, search.view])
 
   useFolderRole(folder?.id, Boolean(folder))
   const status = search.view === 'archived' ? 'archived' : 'active'
   const active = useDocuments(folder?.id, 'active')
   // The list's own source: the same query as `active` unless it's Archived.
   const listSource = useDocuments(folder?.id, status)
-  const shown = useMemo(
-    () => visibleDocuments(listSource.documents, search),
-    [listSource.documents, search],
-  )
-  const totalInView = useMemo(() => {
-    const view = search.view ?? 'all'
-    return listSource.documents.filter((artifact) => inView(artifact, view))
-      .length
-  }, [listSource.documents, search.view])
   const { put, removed } = useDocumentActions(folder?.id)
+
+  const sharedDocuments = useMemo(
+    () =>
+      shared.listed.flatMap((item) => (item.artifact ? [item.artifact] : [])),
+    [shared.listed],
+  )
+
+  // The list: the folder's folders (Google Drive puts them first) and its
+  // documents, or what's shared with you.
+  const { entries, totalInView } = useMemo((): {
+    entries: ListEntry[]
+    totalInView: number
+  } => {
+    const needle = search.q?.trim().toLowerCase() ?? ''
+    const byName = (left: string, right: string) =>
+      search.sort === 'za'
+        ? right.localeCompare(left)
+        : left.localeCompare(right)
+    if (sharedView) {
+      const items = shared.listed.filter((item) =>
+        item.type === 'folder'
+          ? !search.kind && matches(needle, item.folder!.name)
+          : (!search.kind || documentKind(item.artifact!) === search.kind) &&
+            matches(
+              needle,
+              item.artifact!.title,
+              item.artifact!.slug,
+              item.artifact!.description,
+            ),
+      )
+      const name = (item: SharedItem) =>
+        item.folder?.name ?? item.artifact!.title
+      items.sort((left, right) => {
+        if (left.type !== right.type) return left.type === 'folder' ? -1 : 1
+        if (search.sort === 'az' || search.sort === 'za')
+          return byName(name(left), name(right))
+        return right.sharedAt.localeCompare(left.sharedAt)
+      })
+      return {
+        totalInView: shared.listed.length,
+        entries: items.map((item): ListEntry => {
+          const sharedBy = { person: item.sharedBy, at: item.sharedAt }
+          if (item.type === 'folder')
+            return { type: 'folder', folder: item.folder!, sharedBy }
+          const artifact = item.artifact!
+          // Through a folder you can open, or on its own, by id.
+          const via = folders.find((entry) => entry.id === artifact.folderId)
+          return {
+            type: 'document',
+            artifact,
+            folderSlug: item.folderSlug,
+            folderId: via?.id,
+            sharedBy,
+          }
+        }),
+      }
+    }
+    if (!folder) return { entries: [], totalInView: 0 }
+    const view = search.view ?? 'all'
+    const subfolders =
+      view === 'all' && !search.kind
+        ? folders
+            .filter(
+              (item) =>
+                item.parentId === folder.id && matches(needle, item.name),
+            )
+            .sort((left, right) => byName(left.name, right.name))
+        : []
+    return {
+      totalInView:
+        listSource.documents.filter((artifact) => inView(artifact, view))
+          .length + subfolders.length,
+      entries: [
+        ...subfolders.map((item): ListEntry => ({
+          type: 'folder',
+          folder: item,
+        })),
+        ...visibleDocuments(listSource.documents, search).map(
+          (artifact): ListEntry => ({
+            type: 'document',
+            artifact,
+            folderSlug: folder.slug,
+            folderId: folder.id,
+          }),
+        ),
+      ],
+    }
+  }, [sharedView, shared.listed, folder, folders, listSource.documents, search])
 
   // Layout: the sidebar (a drawer on phones), the list, and full width.
   const [sidebarOpen, setSidebarOpen] = useStoredBoolean(
@@ -190,6 +330,7 @@ export function DriveHome({
     void navigate({
       to: '/home',
       search: (current) => ({
+        folder: current.folder,
         q: current.q,
         sort: current.sort,
         view: current.view,
@@ -198,18 +339,20 @@ export function DriveHome({
       }),
     })
 
-  const openFolder = async (next: Folder) => {
+  const openFolder = (next: Folder) => {
     setDrawerOpen(false)
-    // Leave the open document first: while its route names another folder,
-    // the effect above would switch straight back to it.
-    await navigate({ to: '/home', search: {} })
-    try {
-      await selectFolder(next.id)
-    } catch (reason) {
-      toast.error('Could not switch folders', {
+    void selectFolder(next.id).catch((reason: unknown) =>
+      toast.error('Could not open the folder', {
         description: reason instanceof Error ? reason.message : String(reason),
-      })
-    }
+      }),
+    )
+    // Leave an open document: its folder would otherwise stay the open one.
+    goHome({ folder: next.id, view: undefined, kind: undefined, q: undefined })
+  }
+
+  const openShared = () => {
+    setDrawerOpen(false)
+    goHome({ folder: undefined, view: 'shared', kind: undefined, q: undefined })
   }
 
   const focusSearch = () => {
@@ -221,6 +364,7 @@ export function DriveHome({
     requestOpenSearch()
   }
 
+  const drives = folders.filter((item) => !item.parentId)
   useCommandHandlers({
     'commandPalette.toggle': () => setPaletteOpen((open) => !open),
     'sidebar.toggle': toggleSidebar,
@@ -234,11 +378,11 @@ export function DriveHome({
       goHome()
     },
     ...Object.fromEntries(
-      folders
+      drives
         .slice(0, 9)
         .map((item, index) => [
           `folder.jump.${index + 1}`,
-          () => void openFolder(item),
+          () => openFolder(item),
         ]),
     ),
   })
@@ -248,15 +392,50 @@ export function DriveHome({
   const context: DriveContextValue = {
     folder,
     folders,
+    foldersLoaded: loaded,
     noFolder: loaded && folders.length === 0,
-    unknownFolderSlug,
     documents: active.documents,
     documentsLoading: active.loading,
+    sharedView,
+    sharedItems: shared.items,
+    sharedListed: shared.listed,
+    sharedLoading: shared.loading,
+    openFolder,
+    openShared,
     narrow,
     expanded: viewerExpanded,
     toggleExpanded: () => setExpanded((current) => !current),
     mainIsLeftmost: !showSidebar && !showList,
   }
+
+  const inSharedFolder = isInSharedFolder(folders, folder)
+  const view = search.view ?? 'all'
+  const heading = sharedView ? (
+    <Breadcrumbs trail={[{ label: 'Shared with me' }]} />
+  ) : folder && view === 'all' ? (
+    <Breadcrumbs
+      trail={[
+        ...(inSharedFolder
+          ? [{ label: 'Shared with me', onClick: openShared }]
+          : []),
+        ...folderPath(folders, folder).map((item) => ({
+          label: folderLabel(item),
+          onClick: () => openFolder(item),
+        })),
+      ]}
+    />
+  ) : (
+    <span className="truncate">
+      {`${totalInView} ${totalInView === 1 ? 'document' : 'documents'}${
+        view === 'archived'
+          ? ' archived'
+          : view === 'recent'
+            ? ' this week'
+            : ''
+      }`}
+      {folder ? ` in ${folderLabel(folder)}` : ''}
+    </span>
+  )
 
   const sidebarContent = settingsOpen ? (
     <SettingsNav
@@ -271,9 +450,12 @@ export function DriveHome({
     <DriveSidebar
       folder={folder}
       folders={folders}
-      onOpenFolder={(next) => void openFolder(next)}
+      sharedView={sharedView}
+      sharedDocuments={sharedDocuments}
       documents={active.documents}
       search={search}
+      onOpenFolder={openFolder}
+      onOpenShared={openShared}
       onNavigate={(update) => {
         setDrawerOpen(false)
         goHome({ ...update, q: undefined })
@@ -281,6 +463,10 @@ export function DriveHome({
       onUpload={() => {
         setDrawerOpen(false)
         requestUpload()
+      }}
+      onNewFolder={() => {
+        setDrawerOpen(false)
+        setNewFolderOpen(true)
       }}
       onSearch={focusSearch}
     />
@@ -293,10 +479,12 @@ export function DriveHome({
         {...drop.handlers}
       >
         <FolderRail
-          folders={folders.filter((item) => !item.parentId)}
+          folders={drives}
           currentFolderId={driveForFolder(folders, folder)?.id ?? null}
           settingsOpen={settingsOpen}
-          onSelectFolder={(next) => void openFolder(next)}
+          sharedOpen={sharedView || inSharedFolder}
+          onSelectFolder={openFolder}
+          onOpenShared={openShared}
         />
         {/* A thin margin of frame on every free side (ChatGPT), so the panel
             floats with all four corners rounded. */}
@@ -339,14 +527,34 @@ export function DriveHome({
                 )}
               >
                 <DocumentList
-                  folder={folder}
-                  documents={shown}
+                  entries={entries}
+                  heading={heading}
+                  searchPlaceholder={
+                    sharedView
+                      ? 'Search Shared with me'
+                      : `Search ${folder ? folderLabel(folder) : 'documents'}`
+                  }
                   totalInView={totalInView}
-                  loading={!context.noFolder && (!folder || listSource.loading)}
-                  error={listSource.error}
+                  loading={
+                    sharedView
+                      ? shared.loading
+                      : !context.noFolder && (!folder || listSource.loading)
+                  }
+                  error={sharedView ? shared.error : listSource.error}
                   search={search}
                   selectedSlug={documentOpen ? place.slug : null}
                   searchRef={searchRef}
+                  emptyState={
+                    sharedView && !search.q && !search.kind ? (
+                      <EmptyState
+                        className="h-full px-6"
+                        icon={UsersIcon}
+                        title="Nothing shared with you yet"
+                        description="When someone shares a folder or a document with you, it shows up here."
+                      />
+                    ) : undefined
+                  }
+                  onOpenFolder={openFolder}
                   onSearchChange={(update) =>
                     onSearchChange(update, 'q' in update)
                   }
@@ -395,11 +603,19 @@ export function DriveHome({
         folders={folders}
         currentFolder={folder}
         canCreateFolders={canCreateFolders}
-        onSelectFolder={(next) => void openFolder(next)}
+        onSelectFolder={openFolder}
+        onOpenShared={openShared}
         onNewFolder={() => setNewFolderOpen(true)}
         onToggleSidebar={toggleSidebar}
       />
-      <NewFolderDialog open={newFolderOpen} onOpenChange={setNewFolderOpen} />
+      <NewFolderDialog
+        open={newFolderOpen}
+        onOpenChange={setNewFolderOpen}
+        parent={folder}
+      />
+      <NewFolderDialogHost />
+      <FolderDialogsHost />
+      <ShareDialogHost />
       <UploadDialogHost
         folder={folder}
         onUploaded={(uploaded) => {

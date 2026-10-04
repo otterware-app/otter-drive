@@ -126,12 +126,20 @@ export function SidebarSection({
 
 /** The sidebar's heading: the folder's name, or "Settings" (Codex's "Codex"),
  *  past the panel's rounded corner. */
-export function SidebarHeading({ children }: { children: ReactNode }) {
+export function SidebarHeading({
+  children,
+  action,
+}: {
+  children: ReactNode
+  /** A control at the heading's end (a shared drive's members). */
+  action?: ReactNode
+}) {
   return (
-    <div className="shrink-0 px-(--sidebar-content-inset) pt-(--radius-xl) pb-2">
-      <h2 className="flex h-9 items-center px-(--sidebar-row-content-inset) text-base font-semibold tracking-tight text-sidebar-foreground">
+    <div className="flex shrink-0 items-center gap-1 px-(--sidebar-content-inset) pt-(--radius-xl) pb-2">
+      <h2 className="flex h-9 min-w-0 flex-1 items-center px-(--sidebar-row-content-inset) text-base font-semibold tracking-tight text-sidebar-foreground">
         <span className="truncate">{children}</span>
       </h2>
+      {action}
     </div>
   )
 }

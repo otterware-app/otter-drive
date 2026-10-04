@@ -15,6 +15,7 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DeviceRouteImport } from './routes/device'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as STokenRouteImport } from './routes/s.$token'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
 import { Route as AppHomeRouteImport } from './routes/_app.home'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app.settings.index'
@@ -55,6 +56,11 @@ const AppRoute = AppRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const STokenRoute = STokenRouteImport.update({
+  id: '/s/$token',
+  path: '/s/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/home': typeof AppHomeRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/s/$token': typeof STokenRoute
   '/settings/$pane': typeof AppSettingsPaneRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/identity/$': typeof ApiIdentitySplatRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/home': typeof AppHomeRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/s/$token': typeof STokenRoute
   '/settings/$pane': typeof AppSettingsPaneRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/identity/$': typeof ApiIdentitySplatRoute
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_app/home': typeof AppHomeRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/s/$token': typeof STokenRoute
   '/_app/settings/$pane': typeof AppSettingsPaneRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/identity/$': typeof ApiIdentitySplatRoute
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/home'
     | '/invite/$invitationId'
+    | '/s/$token'
     | '/settings/$pane'
     | '/api/auth/$'
     | '/api/identity/$'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/home'
     | '/invite/$invitationId'
+    | '/s/$token'
     | '/settings/$pane'
     | '/api/auth/$'
     | '/api/identity/$'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_app/home'
     | '/invite/$invitationId'
+    | '/s/$token'
     | '/_app/settings/$pane'
     | '/api/auth/$'
     | '/api/identity/$'
@@ -248,6 +260,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
+  STokenRoute: typeof STokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiIdentitySplatRoute: typeof ApiIdentitySplatRoute
   ApiV1SplatRoute: typeof ApiV1SplatRoute
@@ -298,6 +311,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/s/$token': {
+      id: '/s/$token'
+      path: '/s/$token'
+      fullPath: '/s/$token'
+      preLoaderRoute: typeof STokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invite/$invitationId': {
@@ -413,6 +433,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
+  STokenRoute: STokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiIdentitySplatRoute: ApiIdentitySplatRoute,
   ApiV1SplatRoute: ApiV1SplatRoute,

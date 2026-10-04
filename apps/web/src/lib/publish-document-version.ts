@@ -12,7 +12,9 @@ export async function publishDocumentVersion(input: {
   entryPath: string
   baseVersion: number
   expectedCurrentVersion: number
-  folderId: string
+  /** The folder you reach the document through; undefined when by id. */
+  folderId: string | undefined
+  /** Its slug in that folder, or its id. */
   slug: string
 }): Promise<number> {
   const digest = await crypto.subtle.digest(

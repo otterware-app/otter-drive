@@ -37,7 +37,8 @@ it('transfers the existing identity and all ownership without changing document 
   expect(
     db.sqlite.prepare('SELECT name,kind FROM folder ORDER BY name').all(),
   ).toEqual([
-    { name: 'chris', kind: 'personal' },
+    // 0007 names every personal drive "My Drive", as Google Drive does.
+    { name: 'My Drive', kind: 'personal' },
     { name: 'zentio', kind: 'shared' },
   ])
   expect(

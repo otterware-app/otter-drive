@@ -3,10 +3,12 @@ import {
   ArchiveRestoreIcon,
   DownloadIcon,
   ExternalLinkIcon,
+  FolderIcon,
   LinkIcon,
   MoveRightIcon,
   SparklesIcon,
   Trash2Icon,
+  UserPlusIcon,
 } from 'lucide-react'
 import type { Artifact } from '@otterware/contracts'
 import {
@@ -16,16 +18,33 @@ import {
 } from '@/components/ui/menu'
 import { toast } from '@/components/ui/toast'
 import { useFolderRole } from '../folder-role'
-import { useFolders, type Folder } from '../folders'
+import {
+  announceSharingChanged,
+  folderLabel,
+  folderPath,
+  useFolders,
+  type Folder,
+} from '../folders'
 import { requestDeleteDocument } from './delete-dialog'
 import { useDocumentActions } from './documents'
 import { FolderMark } from './folder-mark'
+import { requestShare } from './share-dialog'
 
 /**
  * What you can do to a document, wherever it shows (a row's menus, the
- * viewer's): copy its link or an agent prompt, download it, move it, archive
- * it (with Undo), and, once archived, delete it for good.
+ * viewer's): share it, copy its link or an agent prompt, download it, move
+ * it, archive it (with Undo), and, once archived, delete it for good.
  */
+
+export function shareDocument(artifact: Artifact, folderId?: string) {
+  requestShare({
+    type: 'artifact',
+    id: artifact.id,
+    name: artifact.title,
+    url: artifact.url,
+    folderId,
+  })
+}
 
 async function copy(value: string, message: string) {
   try {
@@ -50,14 +69,14 @@ export function copyAgentPrompt(artifact: Artifact) {
 
 export async function downloadDocument(
   artifact: Artifact,
-  folderId: string,
+  folderId: string | undefined,
   version?: number,
 ) {
   const query = version ? `?version=${version}` : ''
   try {
     const response = await fetch(
       `/api/v1/artifacts/${encodeURIComponent(artifact.id)}/download${query}`,
-      { headers: { 'x-otterdrive-folder': folderId } },
+      { headers: folderId ? { 'x-otterdrive-folder': folderId } : {} },
     )
     if (!response.ok) throw new Error(`Download failed (${response.status}).`)
     const disposition = response.headers.get('content-disposition')
@@ -84,6 +103,8 @@ export function useArchiveDocument(folderId: string | undefined) {
   return async (artifact: Artifact, archived: boolean) => {
     try {
       const result = await setArchived(artifact, archived)
+      // A shared document leaves (or rejoins) Shared with me.
+      if (!folderId) announceSharingChanged()
       toast.success(
         `${archived ? 'Archived' : 'Restored'} “${artifact.title}”`,
         {
@@ -105,14 +126,18 @@ export function useArchiveDocument(folderId: string | undefined) {
 
 export function DocumentMenuItems({
   artifact,
-  folder,
+  folderId,
   href,
   version,
   onMoved,
   onDeleted,
 }: {
   artifact: Artifact
-  folder: Folder
+  /**
+   * The folder you reach the document through; undefined for a document
+   * shared with you on its own, which is addressed by its id.
+   */
+  folderId: string | undefined
   /** Offers "Open in new tab" (rows, not the viewer). */
   href?: string
   /** The version showing, for Download. */
@@ -121,17 +146,27 @@ export function DocumentMenuItems({
   onDeleted?: (artifact: Artifact) => void
 }) {
   const { folders } = useFolders()
-  const { canManage, canEdit, isOwner } = useFolderRole(folder.id)
-  const { move } = useDocumentActions(folder.id)
-  const archive = useArchiveDocument(folder.id)
+  // The document's own role covers sharing; the folder's is the fallback for
+  // responses from before it was reported.
+  const folderRole = useFolderRole(
+    folderId,
+    Boolean(folderId) && !artifact.role,
+  )
+  const role =
+    artifact.role ??
+    (folderRole.isOwner ? 'owner' : folderRole.canEdit ? 'editor' : 'viewer')
+  const isOwner = role === 'owner'
+  const canEdit = role !== 'viewer'
+  const { move } = useDocumentActions(folderId)
+  const archive = useArchiveDocument(folderId)
   const destinations = folders.filter(
-    (item) => item.id !== folder.id && item.role === 'owner',
+    (item) => item.id !== artifact.folderId && item.role === 'owner',
   )
 
   async function moveTo(destination: Folder) {
     try {
       const moved = await move(artifact, destination.id)
-      toast.success(`Moved “${artifact.title}” to ${destination.name}`)
+      toast.success(`Moved “${artifact.title}” to ${folderLabel(destination)}`)
       onMoved?.(moved, destination)
     } catch (reason) {
       toast.error('Could not move the document', {
@@ -151,6 +186,12 @@ export function DocumentMenuItems({
         </DropdownMenuItem>
       ) : null}
       <DropdownMenuItem
+        icon={<UserPlusIcon />}
+        onClick={() => shareDocument(artifact, folderId)}
+      >
+        Share…
+      </DropdownMenuItem>
+      <DropdownMenuItem
         icon={<LinkIcon />}
         onClick={() => void copyLink(artifact)}
       >
@@ -164,24 +205,28 @@ export function DocumentMenuItems({
       </DropdownMenuItem>
       <DropdownMenuItem
         icon={<DownloadIcon />}
-        onClick={() => void downloadDocument(artifact, folder.id, version)}
+        onClick={() => void downloadDocument(artifact, folderId, version)}
       >
         Download
       </DropdownMenuItem>
-      {canManage && destinations.length > 0 ? (
+      {isOwner && destinations.length > 0 ? (
         <DropdownMenuSub label="Move to" icon={<MoveRightIcon />}>
           {destinations.map((destination) => (
             <DropdownMenuItem
               key={destination.id}
               icon={
-                <FolderMark
-                  folder={destination}
-                  className="size-4 text-[7px]"
-                />
+                destination.parentId ? (
+                  <FolderIcon />
+                ) : (
+                  <FolderMark
+                    folder={destination}
+                    className="size-4 text-[7px]"
+                  />
+                )
               }
               onClick={() => void moveTo(destination)}
             >
-              {destination.name}
+              {folderPath(folders, destination).map(folderLabel).join(' › ')}
             </DropdownMenuItem>
           ))}
         </DropdownMenuSub>
@@ -213,7 +258,7 @@ export function DocumentMenuItems({
           onClick={() =>
             requestDeleteDocument({
               artifact,
-              folderId: folder.id,
+              folderId,
               ...(onDeleted ? { onDeleted } : {}),
             })
           }

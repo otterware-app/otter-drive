@@ -5,7 +5,12 @@ import { Input } from '@/components/ui/input'
 import { RowSelect } from '@/components/ui/select'
 import { toast } from '@/components/ui/toast'
 import { NewFolderDialog } from '../drive/new-folder-dialog'
-import { announceFoldersChanged, driveForFolder, useFolders } from '../folders'
+import {
+  announceFoldersChanged,
+  driveForFolder,
+  folderLabel,
+  useFolders,
+} from '../folders'
 import {
   SettingsPageContainer,
   SettingsRow,
@@ -32,13 +37,18 @@ export function FolderPane() {
   return (
     <SettingsPageContainer
       title="Drives and folders"
-      description="Your personal drive is private. Shared drive access applies to every folder inside it."
+      description="My Drive is yours alone; share its folders and documents from their menus. Shared drive members can open every folder inside it."
     >
-      <SettingsSection title={folder?.name ?? 'Folder'}>
+      <SettingsSection title={folder ? folderLabel(folder) : 'Folder'}>
         <SettingsRow
           title="Name"
+          description={
+            folder?.kind === 'personal'
+              ? 'Your personal drive is always called My Drive.'
+              : undefined
+          }
           control={
-            folder?.role === 'owner' ? (
+            folder?.role === 'owner' && folder.kind !== 'personal' ? (
               <form
                 className="flex gap-2"
                 onSubmit={(e) => {
@@ -56,7 +66,7 @@ export function FolderPane() {
                 <Button type="submit">Save</Button>
               </form>
             ) : (
-              <span>{folder?.name}</span>
+              <span>{folder ? folderLabel(folder) : null}</span>
             )
           }
         />

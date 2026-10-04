@@ -12,8 +12,10 @@ export type DocumentContent =
   | { kind: 'spreadsheet'; sheets: DocumentSheet[] }
 
 interface ContentInput {
-  folderId: string
-  slug: string
+  /** The folder you reach the document through; undefined when by id. */
+  folderId: string | undefined
+  /** Its slug in that folder, or its id. */
+  reference: string
   version: number
   entryPath: string
   kind: NativeDocumentKind
@@ -28,11 +30,11 @@ async function loadDocumentContent(
     path: input.entryPath,
   })
   const response = await fetch(
-    `/api/v1/artifacts/${encodeURIComponent(input.slug)}/content?${query}`,
+    `/api/v1/artifacts/${encodeURIComponent(input.reference)}/content?${query}`,
     {
       headers: {
         accept: '*/*',
-        'x-otterdrive-folder': input.folderId,
+        ...(input.folderId ? { 'x-otterdrive-folder': input.folderId } : {}),
       },
       signal,
     },
@@ -77,8 +79,8 @@ export function useDocumentContent(input: ContentInput) {
   return useQuery({
     queryKey: [
       'document-content',
-      input.folderId,
-      input.slug,
+      input.folderId ?? 'shared',
+      input.reference,
       input.version,
       input.entryPath,
       input.kind,

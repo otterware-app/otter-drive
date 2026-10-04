@@ -70,6 +70,7 @@ const textProps = {
   folderId: 'org-chris',
   folderSlug: 'chris',
   slug: 'roadmap',
+  reference: 'roadmap',
   version: 2,
 }
 
@@ -91,6 +92,7 @@ describe('DocumentPreview', () => {
         folderId="org-chris"
         folderSlug="chris"
         slug="report"
+        reference="report"
         version={1}
       />,
     )
@@ -283,6 +285,7 @@ describe('DocumentPreview', () => {
         folderSlug="chris"
         onSheetChange={onSheetChange}
         slug="workbook"
+        reference="workbook"
         version={1}
       />,
     )

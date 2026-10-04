@@ -43,7 +43,9 @@ Use the installed `otterdrive` CLI as the only boundary for artifact operations.
 
 - Inspect available drives and folders with `otterdrive --json folders list`.
 - Treat `otterdrive folders use <id>` as a persistent configuration change. Use it only when the intended workspace is clear.
-- Documents in a personal drive are private. Shared drive members can see every folder and document in that drive. Folders are recursive and inherit drive access.
+- Documents in a personal drive (My Drive) are private until shared. Shared drive members can see every folder and document in that drive. Folders are recursive: sharing a folder shares everything inside it.
+- Share only when the user asks, and only with the people they name: `otterdrive artifacts share <artifact> <email…> --role viewer` (or `editor`), `otterdrive folders share <folder> <email…>`. Check who has access with `artifacts access` / `folders access`. Never turn on `link` (anyone with the link) unless the user explicitly asks for a link. Sharing needs a user login; API keys cannot share.
+- `otterdrive --json shared` lists what others shared with the user. Address those documents by ID.
 - Device tokens and personal API keys follow the user’s current drive access. Keys migrated from organizations remain restricted to their original drive subtree.
 - Use `--profile <name>` for separate accounts or deployments. Put global options before the command for clarity.
 

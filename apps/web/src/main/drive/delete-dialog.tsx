@@ -16,7 +16,7 @@ const DELETE_EVENT = 'otterdrive:delete-document'
 
 type DeleteRequest = {
   artifact: Artifact
-  folderId: string
+  folderId: string | undefined
   onDeleted?: (artifact: Artifact) => void
 }
 
@@ -28,7 +28,7 @@ export function DeleteDocumentDialogHost({
   onDeleted,
 }: {
   /** Runs after any deletion (the lists drop the document). */
-  onDeleted: (artifact: Artifact, folderId: string) => void
+  onDeleted: (artifact: Artifact, folderId: string | undefined) => void
 }) {
   const [request, setRequest] = useState<DeleteRequest | null>(null)
   const [confirmation, setConfirmation] = useState('')

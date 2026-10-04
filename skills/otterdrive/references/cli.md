@@ -103,6 +103,22 @@ otterdrive --json artifacts archive <artifact>
 otterdrive --json artifacts restore <artifact>
 ```
 
+## Sharing
+
+Sharing acts as the signed-in user (device login); API keys cannot share.
+
+```bash
+otterdrive --json artifacts share <artifact> alex@example.com --role editor --message "Have a look"
+otterdrive --json folders share <folder> sam@example.com --role viewer --no-notify
+otterdrive --json artifacts access <artifact>
+otterdrive --json artifacts unshare <artifact> alex@example.com
+otterdrive --json artifacts link <artifact> --role viewer   # anyone who signs in with the link
+otterdrive --json artifacts link <artifact> --off           # removes everyone who joined by link
+otterdrive --json shared                                    # shared with me
+```
+
+A shared folder includes everything inside it. People added by email who haven't signed in yet show as pending until they do.
+
 `update` does not create a content version. `move` preserves every immutable version and requires a user login with owner or admin access in both organizations. `promote` changes which immutable version is current.
 
 ## Reading and downloading

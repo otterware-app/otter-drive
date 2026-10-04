@@ -148,10 +148,12 @@ export function documentKind(artifact: Artifact): DocumentKind {
 }
 
 export const driveSearchSchema = z.object({
+  /** The open folder, so Back walks folders and links open them. */
   folder: z.string().max(256).optional().catch(undefined),
   q: z.string().max(200).optional().catch(undefined),
   sort: z.enum(['updated', 'az', 'za']).optional().catch(undefined),
-  view: z.enum(['recent', 'archived']).optional().catch(undefined),
+  /** `shared` is "Shared with me"; the others filter the open folder. */
+  view: z.enum(['recent', 'archived', 'shared']).optional().catch(undefined),
   kind: z.enum(DOCUMENT_KINDS).optional().catch(undefined),
 })
 export type DriveSearch = z.infer<typeof driveSearchSchema>
@@ -222,11 +224,13 @@ export function useDocumentActions(folderId: string | undefined) {
 
   const forget = useCallback(
     (artifact: Artifact) => {
-      removeSessionCachePrefix(
-        `otterdrive:artifact:${folderId}:${artifact.slug}`,
-      )
+      // A document shared on its own is cached by its id, without a folder.
+      const [folderKey, reference] = folderId
+        ? [folderId, artifact.slug]
+        : ['shared', artifact.id]
+      removeSessionCachePrefix(`otterdrive:artifact:${folderKey}:${reference}`)
       void queryClient.invalidateQueries({
-        queryKey: ['artifact-bootstrap', folderId, artifact.slug],
+        queryKey: ['artifact-bootstrap', folderKey, reference],
       })
     },
     [queryClient, folderId],

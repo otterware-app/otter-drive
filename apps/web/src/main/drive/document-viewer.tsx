@@ -9,10 +9,11 @@ import {
   LinkIcon,
   Maximize2Icon,
   Minimize2Icon,
+  UserPlusIcon,
 } from 'lucide-react'
 import { documentKind } from '#/lib/document-kind'
 import { artifactBootstrapQuery } from '#/lib/artifact-query'
-import { IconButton } from '@/components/ui/button'
+import { Button, IconButton } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import {
   DropdownMenu,
@@ -24,9 +25,13 @@ import {
 import { HintTooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { TitleBand } from '../top-bar'
-import type { Folder } from '../folders'
 import { ContentLoading } from './content-loading'
-import { DocumentMenuItems, copyLink, downloadDocument } from './document-menu'
+import {
+  DocumentMenuItems,
+  copyLink,
+  downloadDocument,
+  shareDocument,
+} from './document-menu'
 import { formatRelative } from './documents'
 
 const DocumentPreview = lazy(() =>
@@ -35,13 +40,26 @@ const DocumentPreview = lazy(() =>
   })),
 )
 
+/** Where a document is, for its links and API calls. */
+export interface DocumentLocation {
+  /**
+   * The folder you reach it through; undefined for a document shared with
+   * you on its own, outside every folder you can open.
+   */
+  folderId: string | undefined
+  /** The folder in its links. */
+  folderSlug: string
+  /** How API calls name it: its slug in `folderId`, or its id. */
+  reference: string
+}
+
 /**
  * The main pane with a document open (Otter Mail's reader): its title band
- * holds the title, the version picker and the everyday actions; the
+ * holds the title, the version picker, Share and the everyday actions; the
  * document fills the rest.
  */
 export function DocumentViewer({
-  folder,
+  location,
   slug,
   version,
   sheet,
@@ -51,7 +69,8 @@ export function DocumentViewer({
   onToggleExpanded,
   roundedLeft,
 }: {
-  folder: Folder
+  location: DocumentLocation
+  /** The document's slug, from its link. */
   slug: string
   version?: number | undefined
   sheet?: string | undefined
@@ -68,7 +87,10 @@ export function DocumentViewer({
   const [editorActions, setEditorActions] = useState<HTMLDivElement | null>(
     null,
   )
-  const bootstrap = useQuery(artifactBootstrapQuery(folder.id, slug, version))
+  const { folderId, folderSlug, reference } = location
+  const bootstrap = useQuery(
+    artifactBootstrapQuery(folderId, reference, version),
+  )
   const artifact = bootstrap.data?.artifact ?? null
   const versions = bootstrap.data?.versions ?? []
   const preview = bootstrap.data?.preview ?? null
@@ -90,13 +112,13 @@ export function DocumentViewer({
       number === latest
         ? {
             to: '/$folderSlug/a/$slug',
-            params: { folderSlug: folder.slug, slug },
+            params: { folderSlug, slug },
             search: (current) => ({ ...current, sheet }),
           }
         : {
             to: '/$folderSlug/a/$slug/$version',
             params: {
-              folderSlug: folder.slug,
+              folderSlug,
               slug,
               version: `v${number}`,
             },
@@ -181,6 +203,15 @@ export function DocumentViewer({
         />
         {artifact ? (
           <>
+            <Button
+              size="sm"
+              variant={artifact.role === 'viewer' ? 'outline' : 'accent'}
+              className="me-1 rounded-full px-3"
+              onClick={() => shareDocument(artifact, folderId)}
+            >
+              <UserPlusIcon className="size-3.5" />
+              Share
+            </Button>
             <HintTooltip label="Copy link" side="bottom">
               <IconButton
                 label="Copy link"
@@ -193,7 +224,7 @@ export function DocumentViewer({
               <IconButton
                 label={`Download ${artifact.title}`}
                 onClick={() =>
-                  void downloadDocument(artifact, folder.id, selected?.number)
+                  void downloadDocument(artifact, folderId, selected?.number)
                 }
               >
                 <DownloadIcon className="size-4" />
@@ -210,7 +241,7 @@ export function DocumentViewer({
               <DropdownMenuContent align="end" className="min-w-56">
                 <DocumentMenuItems
                   artifact={artifact}
-                  folder={folder}
+                  folderId={folderId}
                   {...(selected ? { version: selected.number } : {})}
                   onMoved={(moved, destination) =>
                     void navigate({
@@ -282,16 +313,17 @@ export function DocumentViewer({
           ) : kind !== 'frame' && kind !== 'video' ? (
             <Suspense fallback={<ContentLoading />}>
               <DocumentPreview
-                readOnly={folder.role === 'viewer'}
+                readOnly={artifact.role === 'viewer'}
                 actionsContainer={editorActions}
                 kind={kind}
                 entryPath={selected.entryPath}
                 expectedCurrentVersion={artifact.versionCount}
                 onSheetChange={onSheetChange}
-                folderId={folder.id}
-                folderSlug={folder.slug}
+                folderId={folderId}
+                folderSlug={folderSlug}
                 selectedSheet={sheet}
                 slug={slug}
+                reference={reference}
                 version={selected.number}
               />
             </Suspense>

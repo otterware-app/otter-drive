@@ -161,7 +161,7 @@ describe('personal and shared drives', () => {
     expect((await startContentSession(req, env, token)).status).toBe(302)
     db.sqlite.exec('DELETE FROM drive_member')
     await expect(startContentSession(req, env, token)).rejects.toThrow(
-      'Folder not found',
+      'Document access was removed',
     )
   })
   it('keeps drive-scoped API keys inside their subtree and blocks self-containment', async () => {

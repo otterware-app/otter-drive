@@ -13,7 +13,7 @@ afterEach(() => {
 })
 const input = {
   folderId: 'org-1',
-  slug: 'roadmap',
+  reference: 'roadmap',
   version: 1,
   entryPath: 'README.md',
   kind: 'markdown' as const,

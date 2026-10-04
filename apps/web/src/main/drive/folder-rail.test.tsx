@@ -49,7 +49,7 @@ const folders = [
 afterEach(cleanup)
 
 describe('FolderRail', () => {
-  it('lists the folders, lighting the one showing', () => {
+  it('lists the drives, lighting the one showing', () => {
     const onSelectFolder = vi.fn()
     render(
       <FolderRail
@@ -59,11 +59,15 @@ describe('FolderRail', () => {
         onSelectFolder={onSelectFolder}
       />,
     )
+    // The personal drive is always "My Drive", whatever it was called.
     expect(
       screen
-        .getByRole('button', { name: 'Otter Drive Folder' })
+        .getByRole('button', { name: 'My Drive' })
         .getAttribute('aria-current'),
     ).toBe('page')
+    expect(screen.queryByRole('button', { name: 'Otter Drive Folder' })).toBe(
+      null,
+    )
     expect(
       screen
         .getByRole('button', { name: 'Zentio' })
@@ -71,6 +75,29 @@ describe('FolderRail', () => {
     ).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Zentio' }))
     expect(onSelectFolder).toHaveBeenCalledWith(folders[1])
+  })
+
+  it('lights Shared with me instead of a drive while it shows', () => {
+    const onOpenShared = vi.fn()
+    render(
+      <FolderRail
+        folders={folders}
+        currentFolderId="org-1"
+        settingsOpen={false}
+        sharedOpen
+        onSelectFolder={vi.fn()}
+        onOpenShared={onOpenShared}
+      />,
+    )
+    const shared = screen.getByRole('button', { name: 'Shared with me' })
+    expect(shared.getAttribute('aria-current')).toBe('page')
+    expect(
+      screen
+        .getByRole('button', { name: 'My Drive' })
+        .getAttribute('aria-current'),
+    ).toBeNull()
+    fireEvent.click(shared)
+    expect(onOpenShared).toHaveBeenCalled()
   })
 
   it('lets any signed-in person create a shared drive', () => {
