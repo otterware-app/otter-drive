@@ -225,14 +225,17 @@ Pull request builds only upload preview versions; they never migrate.
 
 Its settings live in the Cloudflare dashboard under Workers → otterware → Settings → Build:
 
-- Deploy command: `pnpm --filter @otterware/web run release`
-- API token: the defaults plus **Account → D1 → Edit**, which migrations need.
+- Build command: `pnpm --filter @otterware/web build`
+- Deploy command (`main`): `pnpm db:migrate:remote && pnpm --dir apps/web exec wrangler deploy`
+- Version command (other branches): `pnpm --dir apps/web exec wrangler versions upload`
+- Root directory: `/`
+- API token: `collab build token`, which includes **Account → D1 → Edit** for migrations.
 
 Migrations run just before the new Worker goes live, so each one must work with the
 Worker already running: add tables, indexes and nullable columns freely; drop or rename
 only in a later release, once no deployed code reads them.
 
-`pnpm run deploy` releases the same way from an authenticated checkout.
+`pnpm run deploy` builds and releases the same way from an authenticated checkout.
 
 Attach `drive.otterware.app` and `usercontent.otterware.app` as Worker custom domains. The raw-content handlers reject production requests that do not arrive on the configured content hostname.
 
