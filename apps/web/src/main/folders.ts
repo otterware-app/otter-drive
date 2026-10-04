@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { authClient } from '#/lib/auth-client'
 import { api } from '#/lib/api'
-import type { Folder as FolderRecord } from '@otterware/contracts'
+import {
+  sharedWithMeResponseSchema,
+  type Folder as FolderRecord,
+  type SharedItem,
+} from '@otterware/contracts'
 export type Folder = FolderRecord
 export const FOLDERS_CHANGED_EVENT = 'otterdrive:folders-changed'
 export function announceFoldersChanged() {
@@ -57,6 +61,15 @@ export function useFolders() {
     loaded: Boolean(userId) && !query.isPending,
   }
 }
+/** Google Drive's names: your personal drive is always "My Drive". */
+export function folderLabel(folder: Pick<Folder, 'kind' | 'name'>): string {
+  return folder.kind === 'personal' ? 'My Drive' : folder.name
+}
+
+/**
+ * The topmost folder you can reach above this one: its drive, or, inside
+ * something shared with you, the folder that was shared.
+ */
 export function driveForFolder(
   folders: Folder[],
   folder: Folder | null,
@@ -65,7 +78,10 @@ export function driveForFolder(
   const visited = new Set<string>()
   while (current?.parentId && !visited.has(current.id)) {
     visited.add(current.id)
-    current = folders.find((f) => f.id === current!.parentId) ?? null
+    const parent = folders.find((f) => f.id === current!.parentId)
+    // Above a folder shared with you, the folders aren't yours to see.
+    if (!parent) break
+    current = parent
   }
   return current
 }
@@ -88,4 +104,64 @@ export function folderInitials(folder: Pick<Folder, 'name'>) {
   return (
     words.length > 1 ? `${words[0]![0]}${words[1]![0]}` : words[0]!.slice(0, 2)
   ).toUpperCase()
+}
+
+/** Inside a folder someone shared with you, rather than one of your drives. */
+export function isInSharedFolder(folders: Folder[], folder: Folder | null) {
+  const top = driveForFolder(folders, folder)
+  return Boolean(top?.parentId)
+}
+
+/** The folders from the topmost one you can reach down to this one. */
+export function folderPath(folders: Folder[], folder: Folder | null): Folder[] {
+  const path: Folder[] = []
+  const visited = new Set<string>()
+  let current = folder
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id)
+    path.unshift(current)
+    current = folders.find((item) => item.id === current!.parentId) ?? null
+  }
+  return path
+}
+
+export const SHARED_CHANGED_EVENT = 'otterdrive:shared-changed'
+
+/** Tell "Shared with me" and the folder list to refetch. */
+export function announceSharingChanged() {
+  window.dispatchEvent(new Event(SHARED_CHANGED_EVENT))
+  announceFoldersChanged()
+}
+
+/** Folders and documents other people shared with you, newest first. */
+export function useSharedWithMe() {
+  const session = authClient.useSession(),
+    userId = session.data?.user.id,
+    queryClient = useQueryClient()
+  const queryKey = useMemo(() => ['shared-with-me', userId] as const, [userId])
+  const query = useQuery({
+    queryKey,
+    enabled: Boolean(userId),
+    queryFn: async () =>
+      sharedWithMeResponseSchema.parse(await api<unknown>('/api/v1/shared'))
+        .data,
+    staleTime: 30_000,
+  })
+  useEffect(() => {
+    const refresh = () => void queryClient.invalidateQueries({ queryKey })
+    window.addEventListener(SHARED_CHANGED_EVENT, refresh)
+    return () => window.removeEventListener(SHARED_CHANGED_EVENT, refresh)
+  }, [queryClient, queryKey])
+  const items = query.data ?? ([] as SharedItem[])
+  return {
+    /** Everything, archived documents too: their links still open. */
+    items,
+    /** What Shared with me lists: archived documents stay out of it. */
+    listed: useMemo(
+      () => items.filter((item) => !item.artifact?.archivedAt),
+      [items],
+    ),
+    loading: !userId || query.isPending,
+    error: query.error instanceof Error ? query.error.message : null,
+  }
 }

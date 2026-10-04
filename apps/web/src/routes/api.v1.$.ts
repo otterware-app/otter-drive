@@ -32,6 +32,13 @@ import {
   uploadFile,
 } from '#/server/artifacts'
 import { createAuth } from '#/server/auth'
+import {
+  acceptLink,
+  artifactSharing,
+  folderSharing,
+  sharedWithMe,
+  suggestPeople,
+} from '#/server/sharing'
 import { errorResponse, HttpError, json } from '#/server/http'
 
 async function handler({ request }: { request: Request }): Promise<Response> {
@@ -84,10 +91,19 @@ async function route(request: Request): Promise<Response> {
       return transferDrive(request, env, actor, id)
     if (id && segments[2] === 'members')
       return driveMembers(request, env, actor, id, segments[3])
+    if (id && segments[2] === 'sharing')
+      return folderSharing(request, env, actor, id, segments.slice(3))
     if (id && request.method === 'PATCH')
       return updateFolder(request, env, actor, id)
     if (id && request.method === 'DELETE') return deleteFolder(env, actor, id)
   }
+
+  if (segments[0] === 'shared' && !segments[1] && request.method === 'GET')
+    return sharedWithMe(env, actor)
+  if (segments[0] === 'people' && !segments[1] && request.method === 'GET')
+    return suggestPeople(request, env, actor)
+  if (segments[0] === 'links' && segments[1] && request.method === 'POST')
+    return acceptLink(env, actor, segments[1])
 
   if (segments[0] === 'me' && request.method === 'GET') {
     return json({
@@ -119,6 +135,8 @@ async function route(request: Request): Promise<Response> {
       if (request.method === 'DELETE') {
         return archiveArtifact(env, actor, reference)
       }
+    } else if (segments[2] === 'sharing') {
+      return artifactSharing(request, env, actor, reference, segments.slice(3))
     } else if (segments[2] === 'draft' && request.method === 'DELETE') {
       return deleteDraft(env, actor, reference)
     } else if (segments[2] === 'restore' && request.method === 'POST') {

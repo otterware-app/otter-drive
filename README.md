@@ -236,7 +236,18 @@ only in a later release, once no deployed code reads them.
 
 Attach `drive.otterware.app` and `usercontent.otterware.app` as Worker custom domains. The raw-content handlers reject production requests that do not arrive on the configured content hostname.
 
-Each person signs in with their existing Otter account and gets a private personal drive. Create a shared drive with the + in the drive rail, then invite Google email addresses in Settings → Shared drive access. Invitations grant view or edit access throughout the drive, including future nested folders. No invitation email is sent: copy its link to the collaborator. Only the owner manages access or transfers ownership; editors upload and edit documents. A folder’s parent can be changed within the same drive in Settings → Drives and folders.
+Drives and sharing work like Google Drive:
+
+- **My Drive.** Each person signs in with their existing Otter account and gets a private personal drive, always called My Drive. It is never shared as a whole; its folders and documents are.
+- **Shared drives.** Create one with the + in the drive rail. Its owner manages members (Google email addresses, as viewers or editors) from the drive's Members button, its overview or Settings → Shared drive access. Members open everything in the drive, including future folders. Only the owner manages members or transfers ownership.
+- **Sharing folders and documents.** Owners and editors share a folder, with everything inside it, or a single document from its menu, the viewer's Share button or a folder's overview. People are added by email as viewers or editors without joining the drive; access from a folder above shows as inherited. Anyone with access can see who else has it, and anyone can remove themselves.
+- **Anyone with the link.** General access can open a folder or document to anyone who signs in with its `/s/<token>` link, as a viewer or an editor. Opening the link adds them; turning it off removes everyone who joined that way.
+- **Shared with me.** The rail's second place lists what other people shared directly with you, wherever it lives. A document shared on its own opens by its id from there.
+- **Email.** Adding people can email them when `RESEND_API_KEY` and `EMAIL_FROM` are configured; otherwise the dialog says so and offers the link to send yourself.
+
+The CLI shares too, with a user login: `otterdrive artifacts share|unshare|access|link`, the same commands under `folders`, and `otterdrive shared`. A folder's parent can be changed within the same drive in Settings → Drives and folders.
+
+Migration `0007_sharing.sql` adds the `share` and `share_link` tables and renames every personal drive to My Drive; its URL slug, and so every document link, is unchanged.
 
 Migration `0006_personal_folders.sql` converts the existing `chris` namespace to the personal drive and `zentio` to a shared drive, preserving IDs, slugs and R2 keys. Organizations are removed from the auth model and database. Existing document URLs and CLI credentials remain valid. The old organization header and list endpoint are read compatibility for installed CLIs; new clients use `folders` and `x-otterdrive-folder`.
 

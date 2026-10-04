@@ -58,6 +58,10 @@ export const artifactSchema = z.object({
   versionCount: z.number().int().nonnegative(),
   url: z.string(),
   thumbnailUrl: z.string().nullable().optional(),
+  /** Your access: through the document's folder or its own sharing. */
+  role: z.enum(['owner', 'editor', 'viewer']).optional(),
+  /** Shared with people outside its drive, or through a link. */
+  shared: z.boolean().optional(),
 })
 export type Artifact = z.infer<typeof artifactSchema>
 
@@ -226,6 +230,8 @@ export const folderSchema = z.object({
   kind: z.enum(['personal', 'shared', 'folder']),
   ownerUserId: z.string(),
   role: z.enum(['owner', 'editor', 'viewer']),
+  /** Shared with people outside its drive, or through a link. */
+  shared: z.boolean().optional(),
 })
 export type Folder = z.infer<typeof folderSchema>
 export const folderListResponseSchema = z.object({
@@ -255,3 +261,116 @@ export const driveMembersResponseSchema = z.object({
 })
 
 export const transferDriveInputSchema = z.object({ userId: z.string().min(1) })
+
+// ---------------------------------------------------------------------------
+// Sharing (Google Drive's model): a folder, with everything inside it, or a
+// single document is shared with people by email as a viewer or an editor,
+// or with anyone who has its link. Shared drive members have access to the
+// whole drive; sharing never makes someone a member.
+// ---------------------------------------------------------------------------
+
+export const shareRoleSchema = z.enum(['viewer', 'editor'])
+export type ShareRole = z.infer<typeof shareRoleSchema>
+
+export const personSchema = z.object({
+  /** Null until the person signs in to Drive with this email. */
+  userId: z.string().nullable(),
+  email: z.string(),
+  name: z.string().nullable(),
+  image: z.string().nullable(),
+})
+export type Person = z.infer<typeof personSchema>
+
+export const accessEntrySchema = personSchema.extend({
+  /** The share, or the drive membership for a shared drive itself. */
+  id: z.string(),
+  role: shareRoleSchema,
+  /** The folder whose sharing grants this access; null when granted here. */
+  inheritedFrom: z.object({ id: z.string(), name: z.string() }).nullable(),
+  /** They opened the link rather than being added by name. */
+  viaLink: z.boolean(),
+})
+export type AccessEntry = z.infer<typeof accessEntrySchema>
+
+export const sharingSchema = z.object({
+  resource: z.object({
+    type: z.enum(['folder', 'artifact']),
+    id: z.string(),
+    name: z.string(),
+    /** A drive itself is shared by managing its members. */
+    folderKind: z.enum(['personal', 'shared', 'folder']).nullable(),
+  }),
+  /** The drive it lives in. A shared drive's members all have access. */
+  drive: z.object({
+    id: z.string(),
+    name: z.string(),
+    kind: z.enum(['personal', 'shared']),
+    memberCount: z.number().int().nonnegative(),
+  }),
+  owner: personSchema,
+  /** Your access to it. */
+  role: z.enum(['owner', 'editor', 'viewer']),
+  /** You may add people, change their access and set the link. */
+  canShare: z.boolean(),
+  people: z.array(accessEntrySchema),
+  link: z.object({ url: z.string(), role: shareRoleSchema }).nullable(),
+  /** A link on a folder above it that also opens it. */
+  inheritedLink: z
+    .object({
+      folderId: z.string(),
+      folderName: z.string(),
+      role: shareRoleSchema,
+    })
+    .nullable(),
+})
+export type Sharing = z.infer<typeof sharingSchema>
+
+export const sharingResponseSchema = z.object({
+  data: sharingSchema,
+  /** The people just added were emailed. */
+  notified: z.boolean().optional(),
+})
+export type SharingResponse = z.infer<typeof sharingResponseSchema>
+
+export const createSharesInputSchema = z.object({
+  emails: z.array(z.email().trim().max(254)).min(1).max(20),
+  role: shareRoleSchema,
+  notify: z.boolean().default(true),
+  message: z.string().trim().max(1_000).optional(),
+})
+export type CreateSharesInput = z.infer<typeof createSharesInputSchema>
+
+export const updateShareInputSchema = z.object({ role: shareRoleSchema })
+
+export const shareLinkInputSchema = z.object({ role: shareRoleSchema })
+
+export const sharedItemSchema = z.object({
+  type: z.enum(['folder', 'artifact']),
+  /** Your access to it. */
+  role: z.enum(['owner', 'editor', 'viewer']),
+  sharedAt: z.string(),
+  sharedBy: personSchema.nullable(),
+  owner: personSchema,
+  /** Where the folder sits, or the document's folder. */
+  folderSlug: z.string(),
+  folder: folderSchema.optional(),
+  artifact: artifactSchema.optional(),
+})
+export type SharedItem = z.infer<typeof sharedItemSchema>
+
+export const sharedWithMeResponseSchema = z.object({
+  data: z.array(sharedItemSchema),
+})
+
+export const acceptLinkResponseSchema = z.object({
+  data: z.object({
+    type: z.enum(['folder', 'artifact']),
+    folderId: z.string(),
+    folderSlug: z.string(),
+    /** The document's slug, for an artifact link. */
+    slug: z.string().nullable(),
+  }),
+})
+export type AcceptLinkResponse = z.infer<typeof acceptLinkResponseSchema>
+
+export const peopleResponseSchema = z.object({ data: z.array(personSchema) })

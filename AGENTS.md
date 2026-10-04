@@ -18,7 +18,15 @@ Laid out like Otter Mail's renderer, and styled like it (its design tokens, in
 - `main/`: the app. `home-view.tsx` is the window (drive rail, sidebar, list,
   main pane); `drive/` holds documents (list, viewer, editor, palette,
   dialogs); `settings/` the Settings panes; `keybindings/` the shortcuts;
-  `auth/` the sign-in pages' shell; `folders.ts` the drives, recursive folders and current folder.
+  `auth/` the sign-in pages' shell; `folders.ts` the drives, recursive folders,
+  the open folder and Shared with me. `drive/share-dialog.tsx` is the Share
+  dialog for folders, documents and shared drive members.
+- Access (`server/folders.ts` `folderAccess`, `server/access.ts`): a folder's
+  role comes from owning or belonging to its drive, or from sharing on it or
+  a folder above it; a document adds its own sharing. Documents shared on
+  their own are addressed by id (no folder header). Write checks use the
+  document's role (`onDocument` in `server/artifacts.ts`), never the role on
+  the folder a request names. `server/sharing.ts` holds the sharing API.
 - `routes/`: thin TanStack Router files. Signed-in pages are children of the
   pathless `_app` layout, which keeps the window mounted and holds the list's
   URL state (view, kind, search, sort).

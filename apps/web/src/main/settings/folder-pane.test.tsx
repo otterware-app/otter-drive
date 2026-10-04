@@ -12,6 +12,7 @@ vi.mock('../drive/folder-rail', () => ({ useCanCreateFolders: () => false }))
 vi.mock('../folders', () => ({
   announceFoldersChanged: vi.fn(),
   driveForFolder: () => null,
+  folderLabel: (folder: { name: string }) => folder.name,
   useFolders: () => ({
     activeFolder: {
       id: 'org-zentio',

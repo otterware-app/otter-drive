@@ -9,6 +9,7 @@ import {
   SettingsIcon,
   SunIcon,
   SunMoonIcon,
+  UsersIcon,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { authClient } from '#/lib/auth-client'
@@ -24,7 +25,7 @@ import {
 import { HintTooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { shortcutLabel, type KeybindingCommand } from '../keybindings/commands'
-import type { Folder } from '../folders'
+import { folderLabel, type Folder } from '../folders'
 import { NewFolderDialog } from './new-folder-dialog'
 import { FolderMark, UserAvatar } from './folder-mark'
 
@@ -46,24 +47,64 @@ export function useCanCreateFolders(): boolean {
 }
 
 /**
- * The rail down the window's left edge (Otter Mail's mailbox rail): your
- * folders, then who you are at the bottom, with the app's menu. It stays when
- * the sidebar hides, so switching folders never needs the sidebar.
+ * The rail down the window's left edge (Otter Mail's mailbox rail, Google
+ * Drive's places): My Drive, Shared with me, then your shared drives, and
+ * who you are at the bottom, with the app's menu. It stays when the sidebar
+ * hides, so switching drives never needs the sidebar.
  */
 export function FolderRail({
   folders,
   currentFolderId,
   settingsOpen,
+  sharedOpen = false,
   onSelectFolder,
+  onOpenShared,
 }: {
+  /** Your drives: My Drive first, then the shared drives. */
   folders: Folder[]
-  /** The folder showing; none is lit while Settings is. */
+  /** The drive showing; none is lit while Settings is. */
   currentFolderId: string | null
   settingsOpen: boolean
+  /** "Shared with me", or a folder in it, is showing. */
+  sharedOpen?: boolean
   onSelectFolder: (folder: Folder) => void
+  onOpenShared?: () => void
 }) {
   const [newFolderOpen, setNewFolderOpen] = useState(false)
   const canCreateFolders = useCanCreateFolders()
+  const personal = folders.filter((folder) => folder.kind === 'personal')
+  const shared = folders.filter((folder) => folder.kind !== 'personal')
+  const button = (folder: Folder) => {
+    const index = folders.indexOf(folder)
+    const selected =
+      !settingsOpen && !sharedOpen && folder.id === currentFolderId
+    const label = folderLabel(folder)
+    return (
+      <HintTooltip
+        key={folder.id}
+        label={label}
+        hint={
+          index < 9
+            ? shortcutLabel(`folder.jump.${index + 1}` as KeybindingCommand)
+            : undefined
+        }
+        side="right"
+      >
+        <button
+          type="button"
+          aria-label={label}
+          aria-current={selected ? 'page' : undefined}
+          onClick={() => onSelectFolder(folder)}
+          className={cn(RAIL_BUTTON, selected && RAIL_BUTTON_SELECTED)}
+        >
+          <FolderMark
+            folder={folder}
+            className="size-6 rounded-md text-[10px]"
+          />
+        </button>
+      </HintTooltip>
+    )
+  }
 
   return (
     <nav
@@ -78,36 +119,28 @@ export function FolderRail({
         className="h-(--workspace-topbar-height) w-full shrink-0"
       />
       <div className="mt-(--radius-xl) flex min-h-0 flex-col items-center gap-1 overflow-y-auto">
-        {folders.map((folder, index) => {
-          const selected = !settingsOpen && folder.id === currentFolderId
-          return (
-            <HintTooltip
-              key={folder.id}
-              label={folder.name}
-              hint={
-                index < 9
-                  ? shortcutLabel(
-                      `folder.jump.${index + 1}` as KeybindingCommand,
-                    )
-                  : undefined
-              }
-              side="right"
+        {personal.map(button)}
+        {onOpenShared ? (
+          <HintTooltip label="Shared with me" side="right">
+            <button
+              type="button"
+              aria-label="Shared with me"
+              aria-current={sharedOpen && !settingsOpen ? 'page' : undefined}
+              onClick={onOpenShared}
+              className={cn(
+                RAIL_BUTTON,
+                sharedOpen && !settingsOpen && RAIL_BUTTON_SELECTED,
+              )}
             >
-              <button
-                type="button"
-                aria-label={folder.name}
-                aria-current={selected ? 'page' : undefined}
-                onClick={() => onSelectFolder(folder)}
-                className={cn(RAIL_BUTTON, selected && RAIL_BUTTON_SELECTED)}
-              >
-                <FolderMark
-                  folder={folder}
-                  className="size-6 rounded-md text-[10px]"
-                />
-              </button>
-            </HintTooltip>
-          )
-        })}
+              <UsersIcon className="size-4.5" />
+            </button>
+          </HintTooltip>
+        ) : null}
+        <span
+          aria-hidden
+          className="my-1 h-px w-5 shrink-0 bg-sidebar-muted-foreground/25"
+        />
+        {shared.map(button)}
         {canCreateFolders ? (
           <HintTooltip label="New shared drive" side="right">
             <button

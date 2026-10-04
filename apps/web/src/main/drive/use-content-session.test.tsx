@@ -58,7 +58,7 @@ function setup() {
     (props: { version: number; enabled: boolean }) =>
       useContentSession({
         folderId: 'org-test',
-        slug: 'roadmap',
+        reference: 'roadmap',
         ...props,
       }),
     {

@@ -64,7 +64,7 @@ export function MembersPane() {
       description={
         drive?.kind === 'shared'
           ? `Access to ${drive.name} includes all its folders and documents.`
-          : 'Your personal drive is private. Create a shared drive to collaborate.'
+          : 'My Drive is yours alone. Share its folders and documents from their menus, or create a shared drive for a team.'
       }
     >
       {enabled ? (

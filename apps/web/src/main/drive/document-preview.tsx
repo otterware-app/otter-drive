@@ -25,17 +25,22 @@ interface DocumentPreviewProps {
   entryPath: string
   expectedCurrentVersion?: number | undefined
   onSheetChange?: ((sheet: string | undefined) => void) | undefined
-  folderId: string
+  /** The folder you reach the document through; undefined when by id. */
+  folderId: string | undefined
+  /** The folder in the document's links. */
   folderSlug: string
   selectedSheet?: string | undefined
+  /** The document's slug, for its links. */
   slug: string
+  /** How API calls name it: its slug in the folder, or its id. */
+  reference: string
   version: number
 }
 
 export function DocumentPreview(props: DocumentPreviewProps) {
   return (
     <DocumentPreviewContent
-      key={`${props.folderId}:${props.slug}:${props.version}:${props.entryPath}`}
+      key={`${props.folderId}:${props.reference}:${props.version}:${props.entryPath}`}
       {...props}
     />
   )
@@ -107,6 +112,7 @@ function DocumentPreviewContent(props: DocumentPreviewProps) {
         folderId={props.folderId}
         folderSlug={props.folderSlug}
         slug={props.slug}
+        reference={props.reference}
         {...(content.data.kind === 'text'
           ? {
               kind: 'document',

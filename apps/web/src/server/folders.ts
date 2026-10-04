@@ -31,34 +31,77 @@ export async function ensurePersonalDrive(env: Env, userId: string) {
     )
     .run()
 }
+export type AccessRole = 'owner' | 'editor' | 'viewer'
+export interface FolderAccess {
+  driveId: string
+  driveKind: 'personal' | 'shared'
+  ownerUserId: string
+  role: AccessRole
+  /** Owner or member of the drive, rather than shared into it. */
+  member: boolean
+}
+/**
+ * Your access to a folder: owning its drive, being a member of it, or the
+ * folder (or one above it) being shared with you. The strongest one wins.
+ */
 export async function folderAccess(
   env: Env,
   userId: string,
   id: string,
   keyScope?: string | null,
-) {
+): Promise<FolderAccess> {
   const row = await env.DB.prepare(
     `WITH RECURSIVE ancestors AS (
     SELECT * FROM folder WHERE id = ?
     UNION ALL SELECT f.* FROM folder f JOIN ancestors a ON f.id=a.parent_id
-  ) SELECT root.id AS driveId, root.owner_user_id AS ownerUserId,
-    CASE WHEN root.owner_user_id=? THEN 'owner' ELSE m.role END AS role,
+  ), shared AS (
+    SELECT max(CASE s.role WHEN 'editor' THEN 2 ELSE 1 END) AS rank
+    FROM share s JOIN ancestors x ON s.folder_id=x.id WHERE s.user_id=?
+  ) SELECT root.id AS driveId, root.kind AS driveKind,
+    root.owner_user_id AS ownerUserId,
+    CASE WHEN root.owner_user_id=? THEN 'owner'
+      WHEN m.role='editor' OR (SELECT rank FROM shared)=2 THEN 'editor'
+      WHEN m.role='viewer' OR (SELECT rank FROM shared)=1 THEN 'viewer'
+    END AS role,
+    (root.owner_user_id=? OR m.user_id IS NOT NULL) AS member,
     (SELECT count(*) FROM ancestors WHERE id=?) AS inScope
     FROM ancestors root LEFT JOIN drive_member m ON m.drive_id=root.id AND m.user_id=?
     WHERE root.parent_id IS NULL LIMIT 1`,
   )
-    .bind(id, userId, keyScope ?? id, userId)
+    .bind(id, userId, userId, userId, keyScope ?? id, userId)
     .first<{
       driveId: string
+      driveKind: 'personal' | 'shared'
       ownerUserId: string
-      role: string | null
+      role: AccessRole | null
+      member: number
       inScope: number
     }>()
   if (!row?.role || !row.inScope)
     throw new HttpError(404, 'folder_not_found', 'Folder not found.')
-  return { ...row, role: row.role }
+  return {
+    driveId: row.driveId,
+    driveKind: row.driveKind,
+    ownerUserId: row.ownerUserId,
+    role: row.role,
+    member: Boolean(row.member),
+  }
 }
-function mapFolder(row: FolderRow, role: string) {
+/** `folderAccess`, or null when you have none. */
+export async function folderAccessOrNull(
+  env: Env,
+  userId: string,
+  id: string,
+  keyScope?: string | null,
+): Promise<FolderAccess | null> {
+  try {
+    return await folderAccess(env, userId, id, keyScope)
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 404) return null
+    throw error
+  }
+}
+export function mapFolder(row: FolderRow, role: AccessRole, shared?: boolean) {
   return {
     id: row.id,
     name: row.name,
@@ -67,19 +110,31 @@ function mapFolder(row: FolderRow, role: string) {
     kind: row.kind,
     ownerUserId: row.owner_user_id,
     role,
+    ...(shared === undefined ? {} : { shared }),
   }
 }
+const ROLE_BY_RANK = ['viewer', 'viewer', 'editor', 'owner'] as const
 export async function listFolders(env: Env, actor: AuthenticatedActor) {
+  // Your drives and everything in them, then folders shared with you and
+  // everything in those. A folder reached both ways keeps the stronger role.
   const result = await env.DB.prepare(
-    `WITH RECURSIVE accessible AS (
-    SELECT f.*, CASE WHEN f.owner_user_id=? THEN 'owner' ELSE m.role END AS access_role
+    `WITH RECURSIVE seeds(id, rank) AS (
+    SELECT f.id, CASE WHEN f.owner_user_id=? THEN 3 WHEN m.role='editor' THEN 2 ELSE 1 END
     FROM folder f LEFT JOIN drive_member m ON m.drive_id=f.id AND m.user_id=?
-    WHERE f.parent_id IS NULL AND (f.owner_user_id=? OR m.user_id=?)
-    UNION ALL SELECT f.*, a.access_role FROM folder f JOIN accessible a ON f.parent_id=a.id
-  ) SELECT * FROM accessible ORDER BY kind='personal' DESC, lower(name), id`,
+    WHERE f.parent_id IS NULL AND (f.owner_user_id=? OR m.user_id IS NOT NULL)
+    UNION ALL SELECT s.folder_id, CASE s.role WHEN 'editor' THEN 2 ELSE 1 END
+    FROM share s WHERE s.user_id=? AND s.folder_id IS NOT NULL
+  ), accessible(id, rank) AS (
+    SELECT id, rank FROM seeds
+    UNION ALL SELECT f.id, a.rank FROM folder f JOIN accessible a ON f.parent_id=a.id
+  ) SELECT f.*, max(a.rank) AS access_rank,
+    (EXISTS(SELECT 1 FROM share s WHERE s.folder_id=f.id)
+      OR EXISTS(SELECT 1 FROM share_link l WHERE l.folder_id=f.id)) AS is_shared
+    FROM accessible a JOIN folder f ON f.id=a.id GROUP BY f.id
+    ORDER BY f.kind='personal' DESC, lower(f.name), f.id`,
   )
     .bind(actor.userId, actor.userId, actor.userId, actor.userId)
-    .all<FolderRow & { access_role: string }>()
+    .all<FolderRow & { access_rank: number; is_shared: number }>()
   let rows = result.results
   if (actor.keyScopeId) {
     const allowed = new Set([actor.keyScopeId])
@@ -98,7 +153,11 @@ export async function listFolders(env: Env, actor: AuthenticatedActor) {
     }
     rows = rows.filter((row) => allowed.has(row.id))
   }
-  return json({ data: rows.map((row) => mapFolder(row, row.access_role)) })
+  return json({
+    data: rows.map((row) =>
+      mapFolder(row, ROLE_BY_RANK[row.access_rank]!, Boolean(row.is_shared)),
+    ),
+  })
 }
 export async function createFolder(
   request: Request,
@@ -168,17 +227,31 @@ export async function updateFolder(
   id: string,
 ) {
   const access = await folderAccess(env, actor.userId!, id, actor.keyScopeId)
-  if (actor.type !== 'user' || access.role !== 'owner')
-    throw new HttpError(
-      403,
-      'forbidden',
-      'Only the drive owner can reorganize folders.',
-    )
   const input = updateFolderInputSchema.parse(await parseJson(request))
   const row = await env.DB.prepare('SELECT * FROM folder WHERE id=?')
     .bind(id)
     .first<FolderRow>()
   if (!row) throw new HttpError(404, 'not_found', 'Folder not found.')
+  // Editors rename folders, as in Google Drive; drives and moves stay with
+  // the owner.
+  const renamesFolderOnly =
+    row.kind === 'folder' && input.parentId === undefined
+  if (
+    actor.type !== 'user' ||
+    (access.role !== 'owner' &&
+      !(renamesFolderOnly && access.role === 'editor'))
+  )
+    throw new HttpError(
+      403,
+      'forbidden',
+      'Only the drive owner can reorganize folders.',
+    )
+  if (row.kind === 'personal' && input.name && input.name !== row.name)
+    throw new HttpError(
+      400,
+      'personal_drive',
+      'Your personal drive is always called My Drive.',
+    )
   if (input.parentId !== undefined) {
     if (row.kind !== 'folder')
       throw new HttpError(

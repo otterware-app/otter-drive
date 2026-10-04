@@ -24,12 +24,13 @@ import {
   canReadWithKey,
 } from './actor'
 import { signContentGrant, signThumbnailGrant } from './content'
+import { artifactAccess, strongerRole } from './access'
 import { HttpError, json, parseJson } from './http'
-import { folderAccess } from './folders'
+import { folderAccess, type AccessRole } from './folders'
 import { generateThumbnail } from './thumbnails'
 import type { AuthenticatedActor, Env } from './types'
 
-interface ArtifactRow {
+export interface ArtifactRow {
   id: string
   folder_id: string
   owner_user_id: string | null
@@ -62,7 +63,12 @@ interface VersionRow {
   preview_r2_key: string | null
 }
 
-interface ArtifactListRow extends ArtifactRow {
+/** A document row with your access to it. */
+export interface AccessibleArtifactRow extends ArtifactRow {
+  role: AccessRole
+}
+
+export interface ArtifactListRow extends ArtifactRow {
   cv_id: string | null
   cv_number: number | null
   cv_label: string | null
@@ -116,20 +122,28 @@ function uploadManifest(upload: UploadRow): InternalUploadFile[] {
   return JSON.parse(upload.manifest_json) as InternalUploadFile[]
 }
 
-function canRead(row: ArtifactRow, actor: AuthenticatedActor): boolean {
-  if (row.folder_id !== actor.folderId) return false
-  return canReadWithKey(actor)
-}
-
+/** Drafts belong to whoever started them until they are published. */
 function canModify(row: ArtifactRow, actor: AuthenticatedActor): boolean {
-  if (row.folder_id !== actor.folderId) return false
   if (row.state === 'draft') {
     return (
       row.created_by_actor_type === actor.type &&
       row.created_by_actor_id === actor.id
     )
   }
-  return canRead(row, actor)
+  return true
+}
+
+/**
+ * The actor as seen by one document: your role on it (its folder's or its
+ * own sharing's) instead of the folder you sent. Write checks use this, so
+ * a document shared with you as a viewer stays read-only even when the
+ * request names a folder you own.
+ */
+function onDocument(
+  actor: AuthenticatedActor,
+  row: AccessibleArtifactRow,
+): AuthenticatedActor {
+  return { ...actor, roles: [row.role] }
 }
 
 function mapVersion(row: VersionRow): ArtifactVersion {
@@ -176,12 +190,16 @@ async function versionById(
   return row ? mapVersion(row) : null
 }
 
-function mapArtifactRecord(
+export function mapArtifactRecord(
   env: Env,
   row: ArtifactRow,
   currentVersion: ArtifactVersion | null,
   folderSlug: string,
-  thumbnailUrl?: string | null,
+  extras: {
+    thumbnailUrl?: string | null
+    role?: AccessRole
+    shared?: boolean
+  } = {},
 ): Artifact {
   return {
     id: row.id,
@@ -197,20 +215,39 @@ function mapArtifactRecord(
     currentVersion,
     versionCount: row.version_count,
     url: new URL(`/${folderSlug}/a/${row.slug}/`, env.APP_URL).toString(),
-    ...(thumbnailUrl !== undefined ? { thumbnailUrl } : {}),
+    ...(extras.thumbnailUrl !== undefined
+      ? { thumbnailUrl: extras.thumbnailUrl }
+      : {}),
+    ...(extras.role ? { role: extras.role } : {}),
+    ...(extras.shared !== undefined ? { shared: extras.shared } : {}),
   }
 }
 
-async function mapArtifact(env: Env, row: ArtifactRow): Promise<Artifact> {
+async function mapArtifact(
+  env: Env,
+  row: AccessibleArtifactRow,
+): Promise<Artifact> {
   return mapArtifactRecord(
     env,
     row,
     await versionById(env, row.current_version_id),
     await folderSlug(env, row.folder_id),
+    { role: row.role, shared: await isShared(env, row.id) },
   )
 }
 
-async function folderSlug(env: Env, folderId: string): Promise<string> {
+/** Shared with anyone outside its drive, by name or by link. */
+async function isShared(env: Env, artifactId: string): Promise<boolean> {
+  const row = await env.DB.prepare(
+    `SELECT EXISTS(SELECT 1 FROM share WHERE artifact_id = ?)
+         OR EXISTS(SELECT 1 FROM share_link WHERE artifact_id = ?) AS shared`,
+  )
+    .bind(artifactId, artifactId)
+    .first<{ shared: number }>()
+  return Boolean(row?.shared)
+}
+
+export async function folderSlug(env: Env, folderId: string): Promise<string> {
   const row = await env.DB.prepare('SELECT slug FROM folder WHERE id = ?')
     .bind(folderId)
     .first<{ slug: string }>()
@@ -218,7 +255,31 @@ async function folderSlug(env: Env, folderId: string): Promise<string> {
   return row.slug
 }
 
-function joinedCurrentVersion(row: ArtifactListRow): ArtifactVersion | null {
+/** The current version's columns, for list queries joining it as `v`. */
+export const CURRENT_VERSION_COLUMNS = `v.id AS cv_id, v.number AS cv_number, v.label AS cv_label,
+            v.entry_path AS cv_entry_path, v.created_at AS cv_created_at,
+            v.created_by_user_id AS cv_created_by_user_id,
+            v.created_by_api_key_id AS cv_created_by_api_key_id,
+            v.created_by_name AS cv_created_by_name,
+            v.file_count AS cv_file_count, v.byte_size AS cv_byte_size,
+            v.content_hash AS cv_content_hash,
+            v.preview_r2_key AS cv_preview_r2_key`
+
+export async function thumbnailUrl(
+  env: Env,
+  row: ArtifactListRow,
+): Promise<string | null> {
+  return row.cv_preview_r2_key
+    ? new URL(
+        `/raw/thumbnail/${await signThumbnailGrant(env, row.cv_preview_r2_key)}`,
+        env.CONTENT_URL,
+      ).toString()
+    : null
+}
+
+export function joinedCurrentVersion(
+  row: ArtifactListRow,
+): ArtifactVersion | null {
   if (!row.cv_id) return null
   return mapVersion({
     id: row.cv_id,
@@ -237,25 +298,48 @@ function joinedCurrentVersion(row: ArtifactListRow): ArtifactVersion | null {
   })
 }
 
-async function artifactRow(
+/**
+ * A document you can open, by id or by slug in the folder you sent, with
+ * your role on it. A document shared on its own, outside every folder you
+ * can open, is reached by its id; folder-scoped API keys never leave their
+ * folder.
+ */
+export async function artifactRow(
   env: Env,
   actor: AuthenticatedActor,
   reference: string,
   options: { requireModify?: boolean; includeDraft?: boolean } = {},
-): Promise<ArtifactRow> {
-  const row = await env.DB.prepare(
+): Promise<AccessibleArtifactRow> {
+  let row = await env.DB.prepare(
     'SELECT * FROM artifact WHERE folder_id = ? AND (id = ? OR slug = ?) LIMIT 1',
   )
     .bind(actor.folderId, reference, reference)
     .first<ArtifactRow>()
+  if (!row && !actor.keyScopeId)
+    row = await env.DB.prepare('SELECT * FROM artifact WHERE id = ?')
+      .bind(reference)
+      .first<ArtifactRow>()
+  const role =
+    row && actor.userId
+      ? await artifactAccess(
+          env,
+          { userId: actor.userId, keyScopeId: actor.keyScopeId },
+          row,
+          row.folder_id === actor.folderId
+            ? ((actor.roles[0] as AccessRole | undefined) ?? null)
+            : undefined,
+        )
+      : null
   if (
     !row ||
+    !role ||
+    !canReadWithKey(actor) ||
     (!options.includeDraft && row.state !== 'published') ||
-    (options.requireModify ? !canModify(row, actor) : !canRead(row, actor))
+    (options.requireModify && !canModify(row, actor))
   ) {
     throw new HttpError(404, 'artifact_not_found', 'Document not found.')
   }
-  return row
+  return { ...row, role }
 }
 
 async function audit(
@@ -263,8 +347,8 @@ async function audit(
   actor: AuthenticatedActor,
   action: string,
   resourceId: string,
-  metadata: unknown = {},
-  folderId = actor.folderId,
+  metadata: unknown,
+  folderId: string,
 ): Promise<void> {
   await env.DB.prepare(
     `INSERT INTO audit_event
@@ -291,21 +375,18 @@ export async function moveArtifact(
   actor: AuthenticatedActor,
   reference: string,
 ): Promise<Response> {
-  if (
-    actor.type !== 'user' ||
-    !actor.roles.some((role) => ['owner'].includes(role))
-  ) {
+  const artifact = await artifactRow(env, actor, reference, {
+    requireModify: true,
+  })
+  if (actor.type !== 'user' || artifact.role !== 'owner') {
     throw new HttpError(
       403,
       'forbidden',
       'Only drive owners can move documents.',
     )
   }
-  const artifact = await artifactRow(env, actor, reference, {
-    requireModify: true,
-  })
   const input = moveArtifactInputSchema.parse(await parseJson(request))
-  if (input.folderId === actor.folderId) {
+  if (input.folderId === artifact.folder_id) {
     throw new HttpError(
       400,
       'same_folder',
@@ -345,7 +426,7 @@ export async function moveArtifact(
   }
   const now = new Date().toISOString()
   const metadata = JSON.stringify({
-    fromFolderId: actor.folderId,
+    fromFolderId: artifact.folder_id,
     toFolderId: input.folderId,
   })
   await env.DB.batch([
@@ -356,9 +437,9 @@ export async function moveArtifact(
       destination.ownerUserId,
       now,
       artifact.id,
-      actor.folderId,
+      artifact.folder_id,
     ),
-    ...[actor.folderId, input.folderId].map((folderId) =>
+    ...[artifact.folder_id, input.folderId].map((folderId) =>
       env.DB.prepare(
         `INSERT INTO audit_event
           (id, folder_id, actor_type, actor_id, actor_name, action, resource_type, resource_id, metadata_json, created_at)
@@ -397,7 +478,12 @@ export async function listArtifacts(
   const archived = url.searchParams.get('archived')
   const cursor = url.searchParams.get('cursor')
   const conditions = ['a.folder_id = ?', "a.state = 'published'"]
-  const bindings: unknown[] = [actor.folderId]
+  // The folder's role, raised where a document's own sharing gives you more.
+  // Folder-scoped API keys ignore document sharing.
+  const bindings: unknown[] = [
+    actor.keyScopeId ? null : actor.userId,
+    actor.folderId,
+  ]
   if (archived === 'only') conditions.push('a.archived_at IS NOT NULL')
   else if (archived !== 'true') conditions.push('a.archived_at IS NULL')
   if (cursor) {
@@ -406,15 +492,14 @@ export async function listArtifacts(
   }
   bindings.push(limit + 1)
   const result = await env.DB.prepare(
-    `SELECT a.*,
-            v.id AS cv_id, v.number AS cv_number, v.label AS cv_label,
-            v.entry_path AS cv_entry_path, v.created_at AS cv_created_at,
-            v.created_by_user_id AS cv_created_by_user_id,
-            v.created_by_api_key_id AS cv_created_by_api_key_id,
-            v.created_by_name AS cv_created_by_name,
-            v.file_count AS cv_file_count, v.byte_size AS cv_byte_size,
-            v.content_hash AS cv_content_hash,
-            v.preview_r2_key AS cv_preview_r2_key
+    `SELECT a.*, ${CURRENT_VERSION_COLUMNS},
+            (SELECT CASE max(CASE s.role WHEN 'editor' THEN 2 ELSE 1 END)
+                    WHEN 2 THEN 'editor' WHEN 1 THEN 'viewer' END
+               FROM share s WHERE s.artifact_id = a.id AND s.user_id = ?)
+              AS share_role,
+            (EXISTS(SELECT 1 FROM share s WHERE s.artifact_id = a.id)
+              OR EXISTS(SELECT 1 FROM share_link l WHERE l.artifact_id = a.id))
+              AS is_shared
        FROM artifact a
        LEFT JOIN artifact_version v ON v.id = a.current_version_id
       WHERE ${conditions.join(' AND ')}
@@ -422,26 +507,24 @@ export async function listArtifacts(
       LIMIT ?`,
   )
     .bind(...bindings)
-    .all<ArtifactListRow>()
+    .all<
+      ArtifactListRow & {
+        share_role: 'editor' | 'viewer' | null
+        is_shared: number
+      }
+    >()
   const hasMore = result.results.length > limit
   const rows = result.results.slice(0, limit)
   const activeFolderSlug = await folderSlug(env, actor.folderId)
+  const folderRole = (actor.roles[0] as AccessRole | undefined) ?? null
   const artifacts = await Promise.all(
-    rows.map(async (row) => {
-      const thumbnailUrl = row.cv_preview_r2_key
-        ? new URL(
-            `/raw/thumbnail/${await signThumbnailGrant(env, row.cv_preview_r2_key)}`,
-            env.CONTENT_URL,
-          ).toString()
-        : null
-      return mapArtifactRecord(
-        env,
-        row,
-        joinedCurrentVersion(row),
-        activeFolderSlug,
-        thumbnailUrl,
-      )
-    }),
+    rows.map(async (row) =>
+      mapArtifactRecord(env, row, joinedCurrentVersion(row), activeFolderSlug, {
+        thumbnailUrl: await thumbnailUrl(env, row),
+        role: strongerRole(folderRole, row.share_role) ?? 'viewer',
+        shared: Boolean(row.is_shared),
+      }),
+    ),
   )
   return json(
     artifactListResponseSchema.parse({
@@ -506,7 +589,7 @@ export async function createArtifact(
     requireModify: true,
     includeDraft: true,
   })
-  await audit(env, actor, 'artifact.created', id)
+  await audit(env, actor, 'artifact.created', id, {}, row.folder_id)
   return json(
     artifactResponseSchema.parse({ data: await mapArtifact(env, row) }),
     {
@@ -521,8 +604,8 @@ export async function updateArtifact(
   actor: AuthenticatedActor,
   reference: string,
 ): Promise<Response> {
-  assertCanWrite(actor, 'update')
   const row = await artifactRow(env, actor, reference, { requireModify: true })
+  assertCanWrite(onDocument(actor, row), 'update')
   const input = updateArtifactInputSchema.parse(await parseJson(request))
   const fields: string[] = []
   const values: unknown[] = []
@@ -552,7 +635,7 @@ export async function updateArtifact(
     }
     throw error
   }
-  await audit(env, actor, 'artifact.updated', row.id, input)
+  await audit(env, actor, 'artifact.updated', row.id, input, row.folder_id)
   return showArtifact(env, actor, row.id)
 }
 
@@ -562,8 +645,8 @@ export async function archiveArtifact(
   reference: string,
   restore = false,
 ): Promise<Response> {
-  assertCanWrite(actor, 'archive')
   const row = await artifactRow(env, actor, reference, { requireModify: true })
+  assertCanWrite(onDocument(actor, row), 'archive')
   const now = new Date().toISOString()
   await env.DB.prepare(
     'UPDATE artifact SET archived_at = ?, updated_at = ? WHERE id = ?',
@@ -575,6 +658,8 @@ export async function archiveArtifact(
     actor,
     restore ? 'artifact.restored' : 'artifact.archived',
     row.id,
+    {},
+    row.folder_id,
   )
   return showArtifact(env, actor, row.id)
 }
@@ -609,8 +694,8 @@ export async function permanentlyDeleteArtifact(
   actor: AuthenticatedActor,
   reference: string,
 ): Promise<Response> {
-  assertCanPermanentlyDelete(actor)
   const row = await artifactRow(env, actor, reference, { requireModify: true })
+  assertCanPermanentlyDelete(onDocument(actor, row))
   if (!row.archived_at) {
     throw new HttpError(
       409,
@@ -653,7 +738,7 @@ export async function permanentlyDeleteArtifact(
        VALUES (?, ?, ?, ?, ?, 'artifact.permanently_deleted', 'artifact', ?, ?, ?)`,
     ).bind(
       crypto.randomUUID(),
-      actor.folderId,
+      row.folder_id,
       actor.type,
       actor.id,
       actor.name,
@@ -936,6 +1021,7 @@ export async function bootstrapArtifact(
           artifact,
           currentVersion,
           await folderSlug(env, artifact.folder_id),
+          { role: artifact.role, shared: await isShared(env, artifact.id) },
         ),
         versions,
         preview: {
@@ -959,10 +1045,10 @@ export async function regenerateThumbnail(
   actor: AuthenticatedActor,
   reference: string,
 ): Promise<Response> {
-  assertCanWrite(actor, 'update')
   const artifact = await artifactRow(env, actor, reference, {
     requireModify: true,
   })
+  assertCanWrite(onDocument(actor, artifact), 'update')
   const version = await selectedVersion(request, env, artifact)
   const r2Key = await generateThumbnail(
     env,
@@ -993,12 +1079,9 @@ async function loadUpload(
   const row = await env.DB.prepare('SELECT * FROM artifact_upload WHERE id = ?')
     .bind(id)
     .first<UploadRow>()
-  if (
-    !row ||
-    row.folder_id !== actor.folderId ||
-    row.actor_type !== actor.type ||
-    row.actor_id !== actor.id
-  ) {
+  // Sessions belong to whoever started them; completing one checks access
+  // to the document again.
+  if (!row || row.actor_type !== actor.type || row.actor_id !== actor.id) {
     throw new HttpError(404, 'upload_not_found', 'Upload session not found.')
   }
   if (row.state !== 'pending') {
@@ -1016,11 +1099,11 @@ export async function createUpload(
   actor: AuthenticatedActor,
   reference: string,
 ): Promise<Response> {
-  assertCanWrite(actor, 'update')
   const artifact = await artifactRow(env, actor, reference, {
     requireModify: true,
     includeDraft: true,
   })
+  assertCanWrite(onDocument(actor, artifact), 'update')
   const input = createUploadInputSchema.parse(await parseJson(request))
   if (
     input.expectedCurrentVersion !== undefined &&
@@ -1109,7 +1192,7 @@ export async function createUpload(
       .bind(
         id,
         artifact.id,
-        actor.folderId,
+        artifact.folder_id,
         actor.type,
         actor.id,
         actor.name,
@@ -1308,6 +1391,8 @@ export async function completeUpload(
     requireModify: true,
     includeDraft: true,
   })
+  // Access may have changed since the upload started.
+  assertCanWrite(onDocument(actor, artifact), 'update')
   if (artifact.version_count !== upload.version_number - 1) {
     throw new HttpError(
       409,
@@ -1395,10 +1480,14 @@ export async function completeUpload(
     }
     throw error
   }
-  await audit(env, actor, 'artifact.version_published', artifact.id, {
-    version: upload.version_number,
-    versionId: upload.version_id,
-  })
+  await audit(
+    env,
+    actor,
+    'artifact.version_published',
+    artifact.id,
+    { version: upload.version_number, versionId: upload.version_id },
+    artifact.folder_id,
+  )
   const updatedRow = await artifactRow(env, actor, artifact.id)
   const version = await env.DB.prepare(
     'SELECT * FROM artifact_version WHERE id = ?',
@@ -1430,10 +1519,10 @@ export async function promoteVersion(
   actor: AuthenticatedActor,
   reference: string,
 ): Promise<Response> {
-  assertCanWrite(actor, 'update')
   const artifact = await artifactRow(env, actor, reference, {
     requireModify: true,
   })
+  assertCanWrite(onDocument(actor, artifact), 'update')
   const input = (await parseJson(request)) as { version?: unknown }
   const number = Number(input.version)
   if (!Number.isInteger(number) || number < 1) {
@@ -1455,8 +1544,13 @@ export async function promoteVersion(
   )
     .bind(version.id, new Date().toISOString(), artifact.id)
     .run()
-  await audit(env, actor, 'artifact.version_promoted', artifact.id, {
-    version: number,
-  })
+  await audit(
+    env,
+    actor,
+    'artifact.version_promoted',
+    artifact.id,
+    { version: number },
+    artifact.folder_id,
+  )
   return showArtifact(env, actor, artifact.id)
 }

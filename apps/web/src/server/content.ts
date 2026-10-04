@@ -1,5 +1,5 @@
 import { HttpError } from './http'
-import { folderAccess } from './folders'
+import { artifactAccess } from './access'
 import type { Env } from './types'
 
 interface GrantPayload {
@@ -146,7 +146,13 @@ async function assertGrantAccess(env: Env, grant: GrantPayload) {
       throw new HttpError(403, 'access_revoked', 'API key access was removed.')
     keyScope = key.metadata ? (JSON.parse(key.metadata).folderId ?? null) : null
   }
-  await folderAccess(env, userId, row.folder_id, keyScope)
+  const role = await artifactAccess(
+    env,
+    { userId, keyScopeId: keyScope },
+    { id: grant.artifactId, folder_id: row.folder_id },
+  )
+  if (!role)
+    throw new HttpError(403, 'access_revoked', 'Document access was removed.')
 }
 
 async function verifyThumbnailGrant(

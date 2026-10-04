@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { sendPasswordResetEmail } from './email'
+import { sendPasswordResetEmail, sendShareEmail } from './email'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -55,5 +55,42 @@ describe('sendPasswordResetEmail', () => {
         'https://drive.otterware.app/reset-password?token=secret',
       ),
     ).rejects.toThrow('Resend rejected the email with status 403.')
+  })
+})
+
+describe('sendShareEmail', () => {
+  it('names the sharer, the document and the access, escaping HTML', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await sendShareEmail(
+      {
+        EMAIL_FROM: 'Otter Drive <noreply@otterware.app>',
+        RESEND_API_KEY: 're',
+      },
+      {
+        recipient: 'sam@example.com',
+        sharerName: 'Chris Kafrouni',
+        sharerEmail: 'chris@example.com',
+        title: 'Q3 <roadmap>',
+        kind: 'document',
+        role: 'editor',
+        url: 'https://drive.otterware.app/chris/a/q3-roadmap',
+        message: 'Have a look\nbefore Friday',
+      },
+    )
+
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body),
+    ) as Record<string, string>
+    expect(body.subject).toBe('Chris Kafrouni shared “Q3 <roadmap>” with you')
+    expect(body.text).toContain('You can edit it.')
+    expect(body.text).toContain(
+      'https://drive.otterware.app/chris/a/q3-roadmap',
+    )
+    expect(body.html).toContain('Q3 &lt;roadmap&gt;')
+    expect(body.html).toContain('Have a look<br>before Friday')
   })
 })

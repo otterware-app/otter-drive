@@ -3,6 +3,7 @@ import packageJson from '../package.json' with { type: 'json' }
 import { registerArtifactCommands } from './artifacts'
 import { registerAuthCommands } from './auth'
 import { registerFolderCommands } from './folders'
+import { registerSharingCommands } from './sharing'
 
 const program = new Command()
   .name('otterdrive')
@@ -17,6 +18,7 @@ const program = new Command()
 registerAuthCommands(program)
 registerFolderCommands(program)
 registerArtifactCommands(program)
+registerSharingCommands(program)
 
 program.parseAsync().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error)

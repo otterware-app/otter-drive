@@ -33,12 +33,16 @@ type EditorProps = {
   entryPath: string
   expectedCurrentVersion: number
   version: number
-  folderId: string
+  /** The folder you reach the document through; undefined when by id. */
+  folderId: string | undefined
   folderSlug: string
   onSheetChange?: ((sheet: string | undefined) => void) | undefined
   onPreview?: (() => void) | undefined
   selectedSheet?: string | undefined
+  /** The document's slug, for its links. */
   slug: string
+  /** How API calls name it: its slug in the folder, or its id. */
+  reference: string
 } & (
   | { kind: 'document'; text: string; documentFormat: 'markdown' | 'text' }
   | { kind: 'spreadsheet'; sheets: DocumentSheet[] }
@@ -360,19 +364,22 @@ export function UniverEditor(props: EditorProps) {
         entryPath: props.entryPath,
         expectedCurrentVersion: props.expectedCurrentVersion,
         folderId: props.folderId,
-        slug: props.slug,
+        slug: props.reference,
       })
+      const folderKey = props.folderId ?? 'shared'
       removeSessionCachePrefix(
-        `otterdrive:artifact:${props.folderId}:${props.slug}`,
+        `otterdrive:artifact:${folderKey}:${props.reference}`,
       )
-      removeSessionCachePrefix(`otterdrive:artifacts:${props.folderId}:`)
+      removeSessionCachePrefix(`otterdrive:artifacts:${folderKey}:`)
       dirtyRef.current = false
       setDirty(false)
       await queryClient.invalidateQueries({
-        queryKey: ['artifact-bootstrap', props.folderId, props.slug],
+        queryKey: ['artifact-bootstrap', folderKey, props.reference],
       })
       void queryClient.invalidateQueries({
-        queryKey: ['artifacts', props.folderId],
+        queryKey: props.folderId
+          ? ['artifacts', props.folderId]
+          : ['shared-with-me'],
       })
       toast.success(`Saved version ${nextVersion}`)
       await navigate({

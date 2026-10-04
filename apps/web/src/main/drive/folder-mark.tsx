@@ -1,15 +1,31 @@
 import { useState } from 'react'
+import { HardDriveIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { folderColor, folderInitials, type Folder } from '../folders'
 
-/** A folder's mark: its initials on its color (Otter Mail's account picture). */
+/**
+ * A drive's mark: a shared drive's initials on its color (Otter Mail's
+ * account picture), or a drive for My Drive, which has no name of its own.
+ */
 export function FolderMark({
   folder,
   className,
 }: {
-  folder: Pick<Folder, 'id' | 'name'>
+  folder: Pick<Folder, 'id' | 'name'> & { kind?: Folder['kind'] }
   className?: string
 }) {
+  if (folder.kind === 'personal')
+    return (
+      <span
+        aria-hidden
+        className={cn(
+          'inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-foreground text-canvas select-none',
+          className,
+        )}
+      >
+        <HardDriveIcon className="size-[62%]" strokeWidth={2} />
+      </span>
+    )
   return (
     <span
       aria-hidden

@@ -73,11 +73,14 @@ export function createAuth(env: Env) {
       session: {
         create: {
           after: async (session) => {
-            await env.DB.prepare(
-              `UPDATE drive_member SET user_id = ? WHERE user_id IS NULL AND email = (SELECT lower(email) FROM user WHERE id = ? AND emailVerified = 1)`,
+            // Memberships and shares name an email until its owner signs in.
+            await env.DB.batch(
+              ['drive_member', 'share'].map((table) =>
+                env.DB.prepare(
+                  `UPDATE ${table} SET user_id = ? WHERE user_id IS NULL AND email = (SELECT lower(email) FROM user WHERE id = ? AND emailVerified = 1)`,
+                ).bind(session.userId, session.userId),
+              ),
             )
-              .bind(session.userId, session.userId)
-              .run()
           },
           before: async (session, context) => ({
             data: {

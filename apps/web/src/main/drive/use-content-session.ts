@@ -8,21 +8,23 @@ const REFRESH_MS = 3 * 60 * 60 * 1_000
 
 export function useContentSession({
   folderId,
-  slug,
+  reference,
   version,
   enabled,
 }: {
-  folderId: string
-  slug: string
+  /** The folder you reach the document through; undefined when by id. */
+  folderId: string | undefined
+  /** Its slug in that folder, or its id. */
+  reference: string
   version: number
   enabled: boolean
 }) {
   return useQuery({
-    queryKey: ['content-session', folderId, slug, version],
+    queryKey: ['content-session', folderId ?? 'shared', reference, version],
     queryFn: async ({ signal }) => {
       const preview = artifactPreviewResponseSchema.parse(
         await api<unknown>(
-          `/api/v1/artifacts/${encodeURIComponent(slug)}/preview?version=${version}`,
+          `/api/v1/artifacts/${encodeURIComponent(reference)}/preview?version=${version}`,
           { folderId, signal },
         ),
       ).data
