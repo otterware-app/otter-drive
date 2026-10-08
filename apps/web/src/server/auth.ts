@@ -166,7 +166,7 @@ export function createAuth(env: Env) {
                     headers: {
                       authorization: `Bearer ${linked.accounts_token}`,
                     },
-                    redirect: 'error',
+                    redirect: 'manual',
                     signal: AbortSignal.timeout(10_000),
                   },
                 )
@@ -213,7 +213,7 @@ export function createAuth(env: Env) {
                 `${env.OTTER_AUTH_URL}/get-session`,
                 {
                   headers: { authorization },
-                  redirect: 'error',
+                  redirect: 'manual',
                   signal: AbortSignal.timeout(10_000),
                 },
               )
