@@ -1,6 +1,11 @@
 import { apiKey } from '@better-auth/api-key'
 import { betterAuth } from 'better-auth'
-import { APIError } from 'better-auth/api'
+import {
+  APIError,
+  createAuthEndpoint,
+  createAuthMiddleware,
+} from 'better-auth/api'
+import { setSessionCookie } from 'better-auth/cookies'
 import {
   admin as adminPlugin,
   bearer,
@@ -124,6 +129,183 @@ export function createAuth(env: Env) {
       },
     },
     plugins: [
+      {
+        id: 'otter-suite-session',
+        hooks: {
+          after: [
+            {
+              matcher: (ctx: { path?: string }) => ctx.path === '/get-session',
+              handler: createAuthMiddleware(async (ctx) => {
+                const returned: unknown = ctx.context.returned
+                if (
+                  !returned ||
+                  typeof returned !== 'object' ||
+                  !('session' in returned)
+                )
+                  return
+                const device = returned.session as {
+                  id: string
+                  token: string
+                  userId: string
+                } | null
+                if (!device) return
+                const linked = await env.DB.prepare(
+                  'SELECT accounts_token, expires_at FROM otter_suite_session WHERE session_id = ?',
+                )
+                  .bind(device.id)
+                  .first<{ accounts_token: string; expires_at: number }>()
+                if (!linked) return
+                if (linked.expires_at <= Date.now()) {
+                  await ctx.context.internalAdapter.deleteSession(device.token)
+                  return ctx.json(null)
+                }
+                // This private table never appears in the browser's session JSON.
+                const response = await fetch(
+                  `${env.OTTER_AUTH_URL}/get-session`,
+                  {
+                    headers: {
+                      authorization: `Bearer ${linked.accounts_token}`,
+                    },
+                    redirect: 'error',
+                    signal: AbortSignal.timeout(10_000),
+                  },
+                )
+                if (!response.ok) throw new APIError('SERVICE_UNAVAILABLE')
+                const parent = (await response.json()) as {
+                  user?: { id: string }
+                  session?: { expiresAt: string }
+                } | null
+                if (
+                  parent?.user?.id === device.userId &&
+                  new Date(parent.session?.expiresAt ?? '').getTime() >
+                    Date.now()
+                ) {
+                  // Prevent the default sliding session lifetime from extending this grant.
+                  await env.DB.prepare(
+                    'UPDATE session SET expiresAt = ? WHERE id = ?',
+                  )
+                    .bind(new Date(linked.expires_at).toISOString(), device.id)
+                    .run()
+                  return ctx.json({
+                    ...returned,
+                    session: {
+                      ...device,
+                      expiresAt: new Date(linked.expires_at),
+                    },
+                  })
+                }
+                await ctx.context.internalAdapter.deleteSession(device.token)
+                return ctx.json(null)
+              }),
+            },
+          ],
+        },
+        endpoints: {
+          suiteSession: createAuthEndpoint(
+            '/suite-session',
+            { method: 'POST' },
+            async (ctx) => {
+              const authorization = ctx.headers?.get('authorization')
+              if (!authorization?.startsWith('Bearer '))
+                throw new APIError('UNAUTHORIZED')
+              // Only the configured Accounts host can attest the canonical identity.
+              const response = await fetch(
+                `${env.OTTER_AUTH_URL}/get-session`,
+                {
+                  headers: { authorization },
+                  redirect: 'error',
+                  signal: AbortSignal.timeout(10_000),
+                },
+              )
+              if (!response.ok) throw new APIError('UNAUTHORIZED')
+              const identity = (await response.json()) as {
+                user?: {
+                  id: string
+                  email: string
+                  emailVerified: boolean
+                  name?: string
+                  image?: string | null
+                }
+                session?: { id: string; expiresAt: string }
+              } | null
+              const expiresAt = new Date(identity?.session?.expiresAt ?? '')
+              if (
+                !identity?.user?.id ||
+                !identity.session?.id ||
+                !identity.user.emailVerified ||
+                !Number.isFinite(expiresAt.getTime()) ||
+                expiresAt.getTime() <= Date.now()
+              )
+                throw new APIError('UNAUTHORIZED')
+              const subject = identity.user.id
+              const deleted = await env.DB.prepare(
+                'SELECT subject FROM otter_identity_deleted WHERE subject = ?',
+              )
+                .bind(subject)
+                .first()
+              if (deleted) throw new APIError('UNAUTHORIZED')
+              otterSessions.set(ctx.context, {
+                sid: identity.session.id,
+                sub: subject,
+              })
+              let user = await ctx.context.internalAdapter.findUserById(subject)
+              if (!user) {
+                // Never link identities by email. Existing accounts keep their canonical ID.
+                user = await ctx.context.internalAdapter.createUser(
+                  {
+                    id: subject,
+                    email: normalizeEmail(identity.user.email),
+                    emailVerified: true,
+                    name: identity.user.name || identity.user.email,
+                    image: identity.user.image ?? null,
+                  },
+                  {
+                    method: 'oauth',
+                    oauth: {
+                      providerId: 'otter',
+                      profile: { sub: subject, sid: identity.session.id },
+                    },
+                  },
+                )
+                await ctx.context.internalAdapter.createAccount({
+                  userId: subject,
+                  accountId: subject,
+                  providerId: 'otter',
+                })
+              }
+              if (!user || ('banned' in user && user.banned))
+                throw new APIError('FORBIDDEN')
+              const device = await ctx.context.internalAdapter.createSession(
+                subject,
+                false,
+                { expiresAt, otterSessionId: identity.session.id },
+                true,
+              )
+              if (!device) throw new APIError('INTERNAL_SERVER_ERROR')
+              await env.DB.prepare(
+                'INSERT INTO otter_suite_session (session_id, accounts_token, expires_at) VALUES (?, ?, ?)',
+              )
+                .bind(
+                  device.id,
+                  authorization.slice(7),
+                  device.expiresAt.getTime(),
+                )
+                .run()
+              await env.DB.prepare(
+                'DELETE FROM session WHERE id IN (SELECT session_id FROM otter_suite_session WHERE expires_at < ?)',
+              )
+                .bind(Date.now())
+                .run()
+              await setSessionCookie(ctx, { session: device, user })
+              return ctx.json({
+                token: device.token,
+                user: { id: user.id, email: user.email, name: user.name },
+                expiresAt: device.expiresAt.getTime(),
+              })
+            },
+          ),
+        },
+      },
       genericOAuth({
         config: [
           {

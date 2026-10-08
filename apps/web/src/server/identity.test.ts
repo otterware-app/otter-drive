@@ -12,6 +12,7 @@ let server: ReturnType<typeof createServer>
 let issuer: string
 let signingKey: CryptoKey
 let jwk: Awaited<ReturnType<typeof exportJWK>>
+let suiteRevoked = false
 const codes = new Map<
   string,
   {
@@ -31,6 +32,45 @@ beforeAll(async () => {
   jwk = { ...(await exportJWK(pair.publicKey)), kid: 'test', alg: 'RS256' }
   server = createServer(async (request, response) => {
     response.setHeader('content-type', 'application/json')
+    if (request.url?.endsWith('/get-session')) {
+      const token = request.headers.authorization
+      if (suiteRevoked) {
+        response.end('null')
+        return
+      }
+      if (token === 'Bearer suite-session')
+        response.end(
+          JSON.stringify({
+            user: {
+              id: 'stable-otter-id',
+              email: 'owner@example.com',
+              emailVerified: true,
+              name: 'Otter User',
+            },
+            session: {
+              id: 'suite-account',
+              expiresAt: new Date(Date.now() + 900_000).toISOString(),
+            },
+          }),
+        )
+      else if (token === 'Bearer suite-new-user')
+        response.end(
+          JSON.stringify({
+            user: {
+              id: 'new-canonical-id',
+              email: 'new@example.com',
+              emailVerified: true,
+              name: 'New Otter User',
+            },
+            session: {
+              id: 'suite-new-account',
+              expiresAt: new Date(Date.now() + 900_000).toISOString(),
+            },
+          }),
+        )
+      else response.end('null')
+      return
+    }
     if (request.url?.endsWith('/jwks')) {
       response.end(JSON.stringify({ keys: [jwk] }))
       return
@@ -94,6 +134,7 @@ beforeAll(async () => {
 })
 afterAll(() => server.close())
 beforeEach(() => {
+  suiteRevoked = false
   db?.sqlite.close()
   db = new Database()
   env = {
@@ -514,5 +555,80 @@ describe('shared Otter identity', () => {
     expect(
       db.sqlite.prepare('SELECT count(*) AS count FROM user').get()?.count,
     ).toBe(1)
+  })
+})
+
+it('reuses an Otter suite account for a native token and a browser cookie', async () => {
+  const auth = createAuth(env)
+  const response = await auth.handler(
+    new Request(`${env.APP_URL}/api/auth/suite-session`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer suite-session',
+        'content-type': 'application/json',
+      },
+      body: '{}',
+    }),
+  )
+  expect(response.status, await response.clone().text()).toBe(200)
+  const device = (await response.json()) as {
+    token: string
+    user: { id: string }
+    expiresAt: number
+  }
+  expect(device.user.id).toBe('stable-otter-id')
+  expect(device.expiresAt).toBeLessThanOrEqual(Date.now() + 900_000)
+  expect(response.headers.get('set-cookie')).toContain(
+    'otterdrive.session_token',
+  )
+  const current = await auth.api.getSession({
+    headers: new Headers({ authorization: `Bearer ${device.token}` }),
+  })
+  expect(current?.user.id).toBe('stable-otter-id')
+  expect(new Date(current!.session.expiresAt).getTime()).toBe(device.expiresAt)
+  expect(current?.session.otterSessionId).toBe('suite-account')
+  const actor = await authenticate(
+    new Request(`${env.APP_URL}/api/v1/me`, {
+      headers: { authorization: `Bearer ${device.token}` },
+    }),
+    env,
+    auth,
+  )
+  expect(actor.userId).toBe('stable-otter-id')
+  const refused = await auth.handler(
+    new Request(`${env.APP_URL}/api/auth/suite-session`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer invalid',
+        'content-type': 'application/json',
+      },
+      body: '{}',
+    }),
+  )
+  expect(refused.status).toBe(401)
+  expect(JSON.stringify(current)).not.toContain('suite-session')
+  suiteRevoked = true
+  expect(
+    await auth.api.getSession({
+      headers: new Headers({ authorization: `Bearer ${device.token}` }),
+    }),
+  ).toBeNull()
+})
+
+it('creates new suite users by the canonical subject rather than an email match', async () => {
+  const auth = createAuth(env)
+  const response = await auth.handler(
+    new Request(`${env.APP_URL}/api/auth/suite-session`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer suite-new-user',
+        'content-type': 'application/json',
+      },
+      body: '{}',
+    }),
+  )
+  expect(response.status, await response.clone().text()).toBe(200)
+  expect(await response.json()).toMatchObject({
+    user: { id: 'new-canonical-id' },
   })
 })
