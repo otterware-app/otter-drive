@@ -112,6 +112,7 @@ export function DocumentList({
   headerLeading,
   actions,
   filters,
+  backgroundMenu,
   searchRef,
   emptyState,
   onOpenFolder,
@@ -133,6 +134,8 @@ export function DocumentList({
   actions?: ReactNode
   /** The filter chips under the title band. */
   filters?: ReactNode
+  /** What right-clicking the list's empty space offers. */
+  backgroundMenu?: ReactNode
   searchRef: RefObject<HTMLInputElement | null>
   /** Replaces the default empty state (Shared with me's). */
   emptyState?: ReactNode
@@ -348,7 +351,7 @@ export function DocumentList({
         role="list"
         aria-label="Folders and documents"
         className={cn(
-          'min-h-0 flex-1 overflow-y-auto pb-1 [scrollbar-gutter:stable_both-edges]',
+          'flex min-h-0 flex-1 flex-col overflow-y-auto pb-1 [scrollbar-gutter:stable_both-edges]',
           filters ? 'pt-1' : 'pt-[9px]',
         )}
       >
@@ -362,27 +365,36 @@ export function DocumentList({
         ) : loading ? (
           <DocumentListSkeleton />
         ) : entries.length === 0 ? (
-          (emptyState ?? <EmptyList search={search} total={totalInView} />)
+          <Background menu={backgroundMenu}>
+            {emptyState ?? <EmptyList search={search} total={totalInView} />}
+          </Background>
         ) : (
-          entries.map((entry) =>
-            entry.type === 'folder' ? (
-              <FolderRow
-                key={`folder:${entry.folder.id}`}
-                folder={entry.folder}
-                sharedBy={entry.sharedBy}
-                compact={compact}
-                onOpen={() => onOpenFolder(entry.folder)}
-              />
-            ) : (
-              <DocumentRow
-                key={entry.artifact.id}
-                entry={entry}
-                selected={entry.artifact.slug === selectedSlug}
-                compact={compact}
-                onPrefetch={() => prefetch(entry)}
-              />
-            ),
-          )
+          <>
+            {entries.map((entry) =>
+              entry.type === 'folder' ? (
+                <FolderRow
+                  key={`folder:${entry.folder.id}`}
+                  folder={entry.folder}
+                  sharedBy={entry.sharedBy}
+                  compact={compact}
+                  onOpen={() => onOpenFolder(entry.folder)}
+                />
+              ) : (
+                <DocumentRow
+                  key={entry.artifact.id}
+                  entry={entry}
+                  selected={entry.artifact.slug === selectedSlug}
+                  compact={compact}
+                  onPrefetch={() => prefetch(entry)}
+                />
+              ),
+            )}
+            {/* The space below the rows: right-click it for New folder and
+              Upload. */}
+            <Background menu={backgroundMenu}>
+              <div aria-hidden className="min-h-16" />
+            </Background>
+          </>
         )}
       </div>
     </div>
@@ -398,8 +410,14 @@ export function Breadcrumbs({
   trail,
   menu,
 }: {
-  trail: Array<{ label: string; onClick?: (() => void) | undefined }>
-  /** What the open folder's crumb offers (New folder, Share, Rename…). */
+  trail: Array<{
+    label: string
+    onClick?: (() => void) | undefined
+    /** Its folder's menu, on right-click. */
+    contextMenu?: ReactNode
+  }>
+  /** What the open folder's crumb offers (New folder, Share, Rename…), on
+   *  click and on right-click. */
   menu?: ReactNode
 }) {
   const shown =
@@ -409,6 +427,50 @@ export function Breadcrumbs({
       <ol className="flex min-w-0 items-center">
         {shown.map((crumb, index) => {
           const last = index === shown.length - 1
+          const contextMenu =
+            last && menu
+              ? menu
+              : 'contextMenu' in crumb
+                ? crumb.contextMenu
+                : undefined
+          const content =
+            last && menu ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <button
+                      type="button"
+                      aria-current="page"
+                      className="flex max-w-full items-center gap-0.5 rounded-md py-0.5 ps-1 pe-0.5 font-medium text-foreground outline-none hover:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring data-popup-open:bg-accent-surface"
+                    />
+                  }
+                >
+                  <span className="truncate">{crumb.label}</span>
+                  <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="min-w-56">
+                  {menu}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : crumb.onClick && !last ? (
+              <button
+                type="button"
+                onClick={crumb.onClick}
+                className="max-w-full truncate rounded-md px-1 py-0.5 text-muted-foreground outline-none hover:bg-accent-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+              >
+                {crumb.label}
+              </button>
+            ) : (
+              <span
+                aria-current={last ? 'page' : undefined}
+                className={cn(
+                  'block truncate px-1',
+                  last ? 'font-medium text-foreground' : undefined,
+                )}
+              >
+                {crumb.label}
+              </span>
+            )
           return (
             <Fragment key={`${index}:${crumb.label}`}>
               {index > 0 ? (
@@ -423,42 +485,15 @@ export function Breadcrumbs({
                   last ? 'shrink truncate' : 'max-w-32 shrink-0 truncate',
                 )}
               >
-                {last && menu ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <button
-                          type="button"
-                          aria-current="page"
-                          className="flex max-w-full items-center gap-0.5 rounded-md py-0.5 ps-1 pe-0.5 font-medium text-foreground outline-none hover:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring data-popup-open:bg-accent-surface"
-                        />
-                      }
-                    >
-                      <span className="truncate">{crumb.label}</span>
-                      <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="min-w-56">
-                      {menu}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : crumb.onClick && !last ? (
-                  <button
-                    type="button"
-                    onClick={crumb.onClick}
-                    className="max-w-full truncate rounded-md px-1 py-0.5 text-muted-foreground outline-none hover:bg-accent-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
-                  >
-                    {crumb.label}
-                  </button>
+                {contextMenu ? (
+                  <ContextMenu>
+                    <ContextMenuTrigger>{content}</ContextMenuTrigger>
+                    <ContextMenuContent className="min-w-56">
+                      {contextMenu}
+                    </ContextMenuContent>
+                  </ContextMenu>
                 ) : (
-                  <span
-                    aria-current={last ? 'page' : undefined}
-                    className={cn(
-                      'block truncate px-1',
-                      last ? 'font-medium text-foreground' : undefined,
-                    )}
-                  >
-                    {crumb.label}
-                  </span>
+                  content
                 )}
               </li>
             </Fragment>
@@ -815,6 +850,28 @@ function DocumentRow({
         <DropdownMenuContent align="end">{menu}</DropdownMenuContent>
       </DropdownMenu>
     </div>
+  )
+}
+
+/** The list's empty space, filling what's left, with its right-click menu. */
+function Background({
+  menu,
+  children,
+}: {
+  menu: ReactNode
+  children: ReactNode
+}) {
+  if (!menu)
+    return <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger
+        render={<div className="flex min-h-0 flex-1 flex-col" />}
+      >
+        {children}
+      </ContextMenuTrigger>
+      <ContextMenuContent className="min-w-56">{menu}</ContextMenuContent>
+    </ContextMenu>
   )
 }
 

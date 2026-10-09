@@ -121,7 +121,7 @@ export function DrivePane() {
                     folder: drive,
                     onDeleted: () => {
                       const next = drives.find((item) => item.id !== drive.id)
-                      if (next) selectDrive(next)
+                      if (next) void selectDrive(next)
                     },
                   })
                 }

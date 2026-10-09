@@ -1,34 +1,33 @@
-import type { ComponentType } from 'react'
+import { useState, type ComponentType } from 'react'
 import {
   ArrowLeftIcon,
   BotIcon,
   CircleUserRoundIcon,
   HardDriveIcon,
   PaletteIcon,
+  PlusIcon,
   Settings2Icon,
   UsersIcon,
 } from 'lucide-react'
-import { folderLabel } from '../folders'
+import { FolderMark } from '../drive/folder-mark'
+import { useCanCreateFolders } from '../drive/folder-rail'
+import { NewFolderDialog } from '../drive/new-folder-dialog'
+import { folderLabel, type Folder } from '../folders'
 import { SidebarHeading, SidebarRow } from '../sidebar-ui'
 import { useSettingsDrive } from './drive-scope'
 
 /**
- * Settings in two groups: yours (who you are, how Drive looks, your agents),
- * and the drive's (its name, members and storage), for the drive picked at
- * the top of its pages.
+ * Settings: yours (who you are, how Drive looks, your agents), then each of
+ * your drives with its own pages (its name, members and storage).
  */
-export const SETTINGS_GROUPS = [
-  {
-    id: 'account',
-    label: 'Account',
-    panes: ['account', 'appearance', 'agents'],
-  },
-  { id: 'drive', label: 'Drive', panes: ['drive', 'members', 'storage'] },
-] as const
-export type SettingsPane = (typeof SETTINGS_GROUPS)[number]['panes'][number]
-export const SETTINGS_PANES: readonly SettingsPane[] = SETTINGS_GROUPS.flatMap(
-  (group) => group.panes,
-)
+export const ACCOUNT_PANES = ['account', 'appearance', 'agents'] as const
+export const DRIVE_PANES = ['drive', 'members', 'storage'] as const
+export type SettingsPane =
+  (typeof ACCOUNT_PANES)[number] | (typeof DRIVE_PANES)[number]
+export const SETTINGS_PANES: readonly SettingsPane[] = [
+  ...ACCOUNT_PANES,
+  ...DRIVE_PANES,
+]
 
 export const SETTINGS_PANE_META: Record<
   SettingsPane,
@@ -40,6 +39,13 @@ export const SETTINGS_PANE_META: Record<
   drive: { label: 'General', icon: Settings2Icon },
   members: { label: 'Members', icon: UsersIcon },
   storage: { label: 'Storage', icon: HardDriveIcon },
+}
+
+/** The pages a drive has for you: all of them for one you own (Members only
+ *  for a shared drive), its General page otherwise. */
+export function drivePanes(drive: Folder): readonly SettingsPane[] {
+  if (drive.role !== 'owner') return ['drive']
+  return drive.kind === 'shared' ? DRIVE_PANES : ['drive', 'storage']
 }
 
 /** Older links: "folder" was the drive's page. */
@@ -54,9 +60,17 @@ export function isSettingsPane(value: string): value is SettingsPane {
   return settingsPane(value) === value
 }
 
+function GroupHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="flex h-7 min-w-0 items-center gap-2 px-(--sidebar-row-content-inset) text-[13px] text-sidebar-muted-foreground">
+      {children}
+    </h3>
+  )
+}
+
 /**
- * The sidebar while Settings is open (Otter Mail's): your settings, then the
- * open drive's, then Back to the documents.
+ * The sidebar while Settings is open (Otter Mail's): your settings, then
+ * each drive's, then Back to the documents. A drive's page opens that drive.
  */
 export function SettingsNav({
   pane,
@@ -67,8 +81,13 @@ export function SettingsNav({
   onSelect: (pane: SettingsPane) => void
   onBack: () => void
 }) {
-  const { drive } = useSettingsDrive()
-  const current = settingsPane(pane)
+  const { drives, drive: current, selectDrive } = useSettingsDrive()
+  const canCreate = useCanCreateFolders()
+  const [creating, setCreating] = useState(false)
+  const selected = settingsPane(pane)
+  const accountPane = (ACCOUNT_PANES as readonly string[]).includes(
+    selected ?? '',
+  )
   return (
     <div className="flex h-full min-w-0 flex-col">
       <SidebarHeading>Settings</SidebarHeading>
@@ -76,34 +95,68 @@ export function SettingsNav({
         aria-label="Settings"
         className="scroll-fade-y flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-(--sidebar-content-inset) pt-1 pb-8"
       >
-        {SETTINGS_GROUPS.map((group) => (
-          <div key={group.id} className="flex flex-col gap-0.5">
-            <h3 className="flex h-7 items-center gap-1 px-(--sidebar-row-content-inset) text-[13px] text-sidebar-muted-foreground">
-              <span className="shrink-0">{group.label}</span>
-              {group.id === 'drive' && drive ? (
-                <span className="truncate text-sidebar-muted-foreground/70">
-                  · {folderLabel(drive)}
-                </span>
-              ) : null}
-            </h3>
-            {group.panes.map((id) => {
+        <div className="flex flex-col gap-0.5">
+          <GroupHeading>Account</GroupHeading>
+          {ACCOUNT_PANES.map((id) => {
+            const { label, icon: Icon } = SETTINGS_PANE_META[id]
+            return (
+              <SidebarRow
+                key={id}
+                icon={<Icon />}
+                title={label}
+                selected={id === selected}
+                onClick={() => onSelect(id)}
+              />
+            )
+          })}
+        </div>
+        {drives.map((drive) => (
+          <div
+            key={drive.id}
+            role="group"
+            aria-label={folderLabel(drive)}
+            className="flex flex-col gap-0.5"
+          >
+            <GroupHeading>
+              <FolderMark folder={drive} className="size-4 text-[7px]" />
+              <span className="truncate">{folderLabel(drive)}</span>
+            </GroupHeading>
+            {drivePanes(drive).map((id) => {
               const { label, icon: Icon } = SETTINGS_PANE_META[id]
               return (
                 <SidebarRow
                   key={id}
                   icon={<Icon />}
                   title={label}
-                  selected={id === current}
-                  onClick={() => onSelect(id)}
+                  selected={
+                    !accountPane && id === selected && drive.id === current?.id
+                  }
+                  onClick={() => {
+                    if (drive.id === current?.id) onSelect(id)
+                    else void selectDrive(drive).then(() => onSelect(id))
+                  }}
                 />
               )
             })}
           </div>
         ))}
+        {canCreate ? (
+          <SidebarRow
+            icon={<PlusIcon />}
+            title="New shared drive"
+            className="text-sidebar-muted-foreground"
+            onClick={() => setCreating(true)}
+          />
+        ) : null}
       </nav>
       <div className="flex shrink-0 flex-col gap-0.5 px-(--sidebar-content-inset) pt-1 pb-(--sidebar-content-inset)">
         <SidebarRow icon={<ArrowLeftIcon />} title="Back" onClick={onBack} />
       </div>
+      <NewFolderDialog
+        kind="shared"
+        open={creating}
+        onOpenChange={setCreating}
+      />
     </div>
   )
 }

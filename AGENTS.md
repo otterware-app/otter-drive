@@ -21,9 +21,9 @@ transitions: everything changes instantly. Styled like Otter Mail (its design to
   pane; a sidebar only for Settings). Folders are navigated in the list
   itself: breadcrumbs with the open folder's menu, Up (⌥↑), folder rows, and
   filter chips (`drive/list-filters.tsx`). `drive/` holds documents (list,
-  viewer, editor, palette, dialogs); `settings/` the Settings panes, in
-  two groups: Account (yours) and Drive (General, Members, Storage, for the
-  drive picked by `DriveScope` at the top of each page); `keybindings/` the shortcuts;
+  viewer, editor, palette, dialogs); `settings/` the Settings panes:
+  Account (yours), then each of your drives with its own pages (General,
+  Members, Storage; picking one opens that drive); `keybindings/` the shortcuts;
   `auth/` the sign-in pages' shell; `folders.ts` the drives, recursive folders,
   the open folder and Shared with me. `drive/share-dialog.tsx` is the Share
   dialog for folders, documents and shared drive members.

@@ -11,13 +11,20 @@ import type { Artifact, SharedItem } from '@otterware/contracts'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { shortcutLabel } from '../keybindings/commands'
-import { folderLabel, type Folder } from '../folders'
+import { folderLabel, useFolders, type Folder } from '../folders'
 import { DocumentThumb } from './document-list'
 import { KIND_META, WEEK_MS, documentKind, formatRelative } from './documents'
 import { NewFolderDialog } from './new-folder-dialog'
 import { useCanCreateFolders } from './folder-rail'
 import { FolderMark, UserAvatar } from './folder-mark'
-import { shareFolder } from './folder-menu'
+import { FolderMenuItems, shareFolder } from './folder-menu'
+import { DocumentMenuItems } from './document-menu'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
+} from '@/components/ui/menu'
+import { useDrive } from '../home-view'
 import { requestUpload } from './upload-dialog'
 
 /**
@@ -182,24 +189,42 @@ function RecentCard({
   subtitle?: string
 }) {
   const kind = KIND_META[documentKind(artifact)].one
+  const { folders } = useFolders()
+  // Through a folder you can open, or on its own (shared alone), by id.
+  const folderId = folders.find((item) => item.id === artifact.folderId)?.id
   return (
-    <Link
-      to="/$folderSlug/a/$slug"
-      params={{ folderSlug, slug: artifact.slug }}
-      search={(current) => ({ ...current, sheet: undefined })}
-      className="group flex flex-col gap-1.5 rounded-xl border border-border/60 bg-card p-1.5 pb-2.5 outline-none hover:border-input focus-visible:ring-2 focus-visible:ring-focus-ring"
-    >
-      <DocumentThumb
-        artifact={artifact}
-        className="aspect-[16/10] w-full rounded-lg [&_svg]:size-6"
-      />
-      <div className="min-w-0 px-2">
-        <div className="truncate text-sm text-foreground">{artifact.title}</div>
-        <div className="truncate text-xs text-muted-foreground">
-          {subtitle ?? `${kind} · ${formatRelative(artifact.updatedAt)}`}
+    <ContextMenu>
+      <ContextMenuTrigger
+        render={
+          <Link
+            to="/$folderSlug/a/$slug"
+            params={{ folderSlug, slug: artifact.slug }}
+            search={(current) => ({ ...current, sheet: undefined })}
+          />
+        }
+        className="group flex flex-col gap-1.5 rounded-xl border border-border/60 bg-card p-1.5 pb-2.5 outline-none hover:border-input focus-visible:ring-2 focus-visible:ring-focus-ring"
+      >
+        <DocumentThumb
+          artifact={artifact}
+          className="aspect-[16/10] w-full rounded-lg [&_svg]:size-6"
+        />
+        <div className="min-w-0 px-2">
+          <div className="truncate text-sm text-foreground">
+            {artifact.title}
+          </div>
+          <div className="truncate text-xs text-muted-foreground">
+            {subtitle ?? `${kind} · ${formatRelative(artifact.updatedAt)}`}
+          </div>
         </div>
-      </div>
-    </Link>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="min-w-56">
+        <DocumentMenuItems
+          artifact={artifact}
+          folderId={folderId}
+          href={`/${folderSlug}/a/${artifact.slug}`}
+        />
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 
@@ -330,29 +355,37 @@ export function SharedOverview({
 
 function SharedFolderCard({ item }: { item: SharedItem }) {
   const folder = item.folder!
+  const { openFolder } = useDrive()
   return (
-    <Link
-      to="/home"
-      search={{ folder: folder.id }}
-      className="flex items-center gap-3 rounded-xl border border-border/60 bg-card p-3 outline-none hover:border-input focus-visible:ring-2 focus-visible:ring-focus-ring"
-    >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-surface text-icon-muted">
-        <FolderIcon className="size-4.5" strokeWidth={1.75} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm text-foreground">
-          {folder.name}
+    <ContextMenu>
+      <ContextMenuTrigger
+        render={<Link to="/home" search={{ folder: folder.id }} />}
+        className="flex items-center gap-3 rounded-xl border border-border/60 bg-card p-3 outline-none hover:border-input focus-visible:ring-2 focus-visible:ring-focus-ring"
+      >
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-surface text-icon-muted">
+          <FolderIcon className="size-4.5" strokeWidth={1.75} />
         </span>
-        <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-          {item.sharedBy ? (
-            <UserAvatar user={item.sharedBy} className="size-3.5 text-[6px]" />
-          ) : null}
-          <span className="truncate">
-            {item.sharedBy?.name || item.sharedBy?.email || 'Shared'} ·{' '}
-            {folder.role === 'viewer' ? 'Can view' : 'Can edit'}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm text-foreground">
+            {folder.name}
+          </span>
+          <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+            {item.sharedBy ? (
+              <UserAvatar
+                user={item.sharedBy}
+                className="size-3.5 text-[6px]"
+              />
+            ) : null}
+            <span className="truncate">
+              {item.sharedBy?.name || item.sharedBy?.email || 'Shared'} ·{' '}
+              {folder.role === 'viewer' ? 'Can view' : 'Can edit'}
+            </span>
           </span>
         </span>
-      </span>
-    </Link>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="min-w-56">
+        <FolderMenuItems folder={folder} onOpen={() => openFolder(folder)} />
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
