@@ -43,7 +43,7 @@ beforeEach(() => {
       )
       .run(id, id, `${id}@example.com`, '2026-01-01', '2026-01-01')
   db.sqlite.exec(
-    "INSERT INTO folder VALUES('private','My Drive','private','owner',NULL,'personal','2026-01-01','2026-01-01')",
+    "INSERT INTO folder(id,name,slug,owner_user_id,parent_id,kind,created_at,updated_at) VALUES('private','My Drive','private','owner',NULL,'personal','2026-01-01','2026-01-01')",
   )
 })
 afterEach(() => db.sqlite.close())

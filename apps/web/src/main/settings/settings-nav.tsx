@@ -3,6 +3,7 @@ import {
   ArrowLeftIcon,
   BotIcon,
   CircleUserRoundIcon,
+  HardDriveIcon,
   PaletteIcon,
   Settings2Icon,
   UsersIcon,
@@ -12,6 +13,7 @@ import { SidebarHeading, SidebarRow } from '../sidebar-ui'
 export const SETTINGS_PANES = [
   'folder',
   'members',
+  'storage',
   'agents',
   'appearance',
   'account',
@@ -24,6 +26,7 @@ export const SETTINGS_PANE_META: Record<
 > = {
   folder: { label: 'Drives and folders', icon: Settings2Icon },
   members: { label: 'Shared drive access', icon: UsersIcon },
+  storage: { label: 'Storage', icon: HardDriveIcon },
   agents: { label: 'Agents', icon: BotIcon },
   appearance: { label: 'Appearance', icon: PaletteIcon },
   account: { label: 'Account', icon: CircleUserRoundIcon },

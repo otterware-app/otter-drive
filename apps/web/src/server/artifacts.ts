@@ -27,6 +27,7 @@ import { signContentGrant, signThumbnailGrant } from './content'
 import { artifactAccess, strongerRole } from './access'
 import { HttpError, json, parseJson } from './http'
 import { folderAccess, type AccessRole } from './folders'
+import { storageFor, storageResolver, uploadStorageId } from './storage'
 import { generateThumbnail } from './thumbnails'
 import type { AuthenticatedActor, Env } from './types'
 
@@ -90,6 +91,8 @@ interface FileRow {
   size: number
   sha256: string
   r2_key: string
+  /** Null: Otterware's bucket. */
+  storage_backend_id: string | null
 }
 
 interface UploadRow {
@@ -112,8 +115,16 @@ interface UploadRow {
 
 type InternalUploadFile = CreateUploadInput['files'][number] & {
   r2Key: string
+  /** Where the file is being written; absent (older sessions) is Otterware's. */
+  storageBackendId?: string | null
   multipartUploadId?: string
   inherited?: boolean
+}
+
+/** An object to delete, and the storage it's in. */
+interface StoredKey {
+  key: string
+  backendId: string | null
 }
 
 const MULTIPART_PART_SIZE = 50 * 1024 * 1024
@@ -666,27 +677,29 @@ export async function archiveArtifact(
 
 async function deleteArtifactStorage(
   env: Env,
-  objectKeys: string[],
+  objects: StoredKey[],
   uploads: UploadRow[],
 ): Promise<void> {
+  const storage = storageResolver(env)
   await Promise.all(
     uploads.flatMap((upload) =>
       uploadManifest(upload)
         .filter((file) => file.multipartUploadId)
-        .map((file) =>
-          env.ARTIFACTS.resumeMultipartUpload(
-            file.r2Key,
-            file.multipartUploadId!,
-          )
-            .abort()
+        .map(async (file) =>
+          (await storage(file.storageBackendId))
+            .abortMultipart(file.r2Key, file.multipartUploadId!)
             .catch(() => {}),
         ),
     ),
   )
-  const uniqueKeys = [...new Set(objectKeys)]
-  for (let index = 0; index < uniqueKeys.length; index += 1000) {
-    await env.ARTIFACTS.delete(uniqueKeys.slice(index, index + 1000))
-  }
+  const byBackend = new Map<string | null, string[]>()
+  for (const object of objects)
+    byBackend.set(object.backendId, [
+      ...(byBackend.get(object.backendId) ?? []),
+      object.key,
+    ])
+  for (const [backendId, keys] of byBackend)
+    await (await storage(backendId)).delete(keys)
 }
 
 export async function permanentlyDeleteArtifact(
@@ -706,28 +719,41 @@ export async function permanentlyDeleteArtifact(
 
   const [files, previews, uploads] = await Promise.all([
     env.DB.prepare(
-      `SELECT af.r2_key
+      `SELECT af.r2_key, af.storage_backend_id
          FROM artifact_file af
          JOIN artifact_version av ON av.id = af.version_id
         WHERE av.artifact_id = ?`,
     )
       .bind(row.id)
-      .all<{ r2_key: string }>(),
+      .all<{ r2_key: string; storage_backend_id: string | null }>(),
     env.DB.prepare(
-      'SELECT preview_r2_key FROM artifact_version WHERE artifact_id = ? AND preview_r2_key IS NOT NULL',
+      `SELECT preview_r2_key, preview_storage_backend_id FROM artifact_version
+        WHERE artifact_id = ? AND preview_r2_key IS NOT NULL`,
     )
       .bind(row.id)
-      .all<{ preview_r2_key: string }>(),
+      .all<{
+        preview_r2_key: string
+        preview_storage_backend_id: string | null
+      }>(),
     env.DB.prepare('SELECT * FROM artifact_upload WHERE artifact_id = ?')
       .bind(row.id)
       .all<UploadRow>(),
   ])
   const uploadKeys = uploads.results.flatMap((upload) =>
-    uploadManifest(upload).map((file) => file.r2Key),
+    uploadManifest(upload).map((file) => ({
+      key: file.r2Key,
+      backendId: file.storageBackendId ?? null,
+    })),
   )
-  const objectKeys = [
-    ...files.results.map((file) => file.r2_key),
-    ...previews.results.map((preview) => preview.preview_r2_key),
+  const objectKeys: StoredKey[] = [
+    ...files.results.map((file) => ({
+      key: file.r2_key,
+      backendId: file.storage_backend_id,
+    })),
+    ...previews.results.map((preview) => ({
+      key: preview.preview_r2_key,
+      backendId: preview.preview_storage_backend_id,
+    })),
     ...uploadKeys,
   ]
   const now = new Date().toISOString()
@@ -852,13 +878,15 @@ export async function readContent(
     .bind(version.id, requestedPath)
     .first<FileRow>()
   if (!file) throw new HttpError(404, 'file_not_found', 'File not found.')
-  const object = await env.ARTIFACTS.get(file.r2_key)
+  const object = await (
+    await storageFor(env, file.storage_backend_id)
+  ).get(file.r2_key)
   if (!object)
     throw new HttpError(404, 'file_not_found', 'File body not found.')
   const headers = new Headers()
   headers.set('content-type', file.content_type)
   headers.set('content-length', String(file.size))
-  headers.set('etag', object.httpEtag)
+  if (object.etag) headers.set('etag', object.etag)
   headers.set('cache-control', 'private, max-age=31536000, immutable')
   headers.set('x-content-type-options', 'nosniff')
   return new Response(object.body, { headers })
@@ -877,6 +905,7 @@ export async function downloadArtifact(
   )
     .bind(version.id)
     .all<FileRow>()
+  const storage = storageResolver(env)
   let archive: Zip | null = null
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -891,7 +920,9 @@ export async function downloadArtifact(
       void (async () => {
         try {
           for (const file of files.results) {
-            const object = await env.ARTIFACTS.get(file.r2_key)
+            const object = await (
+              await storage(file.storage_backend_id)
+            ).get(file.r2_key)
             if (!object) {
               throw new HttpError(
                 404,
@@ -1149,38 +1180,53 @@ export async function createUpload(
   const createdAt = new Date()
   const expiresAt = new Date(createdAt.getTime() + 2 * 60 * 60 * 1_000)
   const internalFiles: InternalUploadFile[] = []
+  // The whole version goes to the drive's storage as it is now; changing the
+  // drive's storage later doesn't split an upload in progress.
+  const storageBackendId = await uploadStorageId(env, artifact.folder_id)
+  const storage = storageResolver(env)
+  const target = await storage(storageBackendId)
   try {
     for (const file of input.files) {
       const r2Key = `versions/${artifact.id}/${versionId}/${file.path}`
-      const prepared: InternalUploadFile = { ...file, r2Key }
+      const prepared: InternalUploadFile = { ...file, r2Key, storageBackendId }
       internalFiles.push(prepared)
       if (file.size > MULTIPART_PART_SIZE) {
-        const multipart = await env.ARTIFACTS.createMultipartUpload(r2Key, {
-          httpMetadata: { contentType: file.contentType },
-          customMetadata: { sha256: file.sha256, uploadId: id },
+        prepared.multipartUploadId = await target.createMultipart(r2Key, {
+          contentType: file.contentType,
+          sha256: file.sha256,
         })
-        prepared.multipartUploadId = multipart.uploadId
       }
     }
     // Every version retains its own immutable object keys. Stream companion
-    // files inside the Worker instead of downloading and re-uploading them in UI.
+    // files inside the Worker instead of downloading and re-uploading them in
+    // UI, from whichever storage holds them to this version's.
     for (const file of inheritedFiles) {
-      const source = await env.ARTIFACTS.get(file.r2_key)
+      const source = await (
+        await storage(file.storage_backend_id)
+      ).get(file.r2_key)
       if (
         !source ||
         source.size !== file.size ||
-        source.customMetadata?.sha256 !== file.sha256
-      )
+        source.sha256 !== file.sha256
+      ) {
+        await source?.body.cancel()
         throw new HttpError(
           409,
           'base_file_missing',
           `Base file is missing or incomplete: ${file.path}`,
         )
+      }
       const r2Key = `versions/${artifact.id}/${versionId}/${file.path}`
-      internalFiles.push({ ...mapFile(file), r2Key, inherited: true })
-      await env.ARTIFACTS.put(r2Key, source.body, {
-        httpMetadata: { contentType: file.content_type },
-        customMetadata: { sha256: file.sha256, uploadId: id },
+      internalFiles.push({
+        ...mapFile(file),
+        r2Key,
+        storageBackendId,
+        inherited: true,
+      })
+      await target.put(r2Key, source.body, {
+        contentType: file.content_type,
+        size: file.size,
+        sha256: file.sha256,
       })
     }
     await env.DB.prepare(
@@ -1213,17 +1259,16 @@ export async function createUpload(
       internalFiles
         .filter((file) => file.multipartUploadId)
         .map((file) =>
-          env.ARTIFACTS.resumeMultipartUpload(
-            file.r2Key,
-            file.multipartUploadId!,
-          ).abort(),
+          target.abortMultipart(file.r2Key, file.multipartUploadId!),
         ),
     )
-    await deleteArtifactStorage(
-      env,
-      internalFiles.map((file) => file.r2Key),
-      [],
-    ).catch(() => {})
+    await target
+      .delete(
+        internalFiles
+          .filter((file) => !file.multipartUploadId)
+          .map((file) => file.r2Key),
+      )
+      .catch(() => {})
     throw error
   }
   return json(
@@ -1296,11 +1341,15 @@ export async function uploadFile(
         'Multipart size does not match.',
       )
     }
-    const multipart = env.ARTIFACTS.resumeMultipartUpload(
+    const part = await (
+      await storageFor(env, expected.storageBackendId)
+    ).uploadPart(
       expected.r2Key,
       expected.multipartUploadId,
+      partNumber,
+      request.body,
+      length,
     )
-    const part = await multipart.uploadPart(partNumber, request.body)
     return json({ data: { partNumber: part.partNumber, etag: part.etag } })
   }
   if (length !== expected.size) {
@@ -1310,9 +1359,12 @@ export async function uploadFile(
       'File size does not match manifest.',
     )
   }
-  await env.ARTIFACTS.put(expected.r2Key, request.body, {
-    httpMetadata: { contentType: expected.contentType },
-    customMetadata: { sha256: expected.sha256, uploadId },
+  await (
+    await storageFor(env, expected.storageBackendId)
+  ).put(expected.r2Key, request.body, {
+    contentType: expected.contentType,
+    size: expected.size,
+    sha256: expected.sha256,
   })
   return new Response(null, { status: 204 })
 }
@@ -1358,10 +1410,12 @@ export async function completeMultipartFile(
       'Every multipart upload part must be supplied in order.',
     )
   }
-  await env.ARTIFACTS.resumeMultipartUpload(
-    expected.r2Key,
-    expected.multipartUploadId,
-  ).complete(parts)
+  await (
+    await storageFor(env, expected.storageBackendId)
+  ).completeMultipart(expected.r2Key, expected.multipartUploadId, parts, {
+    contentType: expected.contentType,
+    sha256: expected.sha256,
+  })
   return new Response(null, { status: 204 })
 }
 
@@ -1401,13 +1455,16 @@ export async function completeUpload(
     )
   }
   const files = uploadManifest(upload)
+  const storage = storageResolver(env)
   await Promise.all(
     files.map(async (file) => {
-      const object = await env.ARTIFACTS.head(file.r2Key)
+      const object = await (
+        await storage(file.storageBackendId)
+      ).head(file.r2Key)
       if (
         !object ||
         object.size !== file.size ||
-        object.customMetadata?.sha256 !== file.sha256
+        object.sha256 !== file.sha256
       ) {
         throw new HttpError(
           409,
@@ -1442,8 +1499,8 @@ export async function completeUpload(
     ),
     ...files.map((file) =>
       env.DB.prepare(
-        `INSERT INTO artifact_file (version_id, path, content_type, size, sha256, r2_key)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO artifact_file (version_id, path, content_type, size, sha256, r2_key, storage_backend_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         upload.version_id,
         file.path,
@@ -1451,6 +1508,7 @@ export async function completeUpload(
         file.size,
         file.sha256,
         file.r2Key,
+        file.storageBackendId ?? null,
       ),
     ),
     env.DB.prepare(

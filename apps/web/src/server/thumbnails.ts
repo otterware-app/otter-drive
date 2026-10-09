@@ -3,10 +3,12 @@ import Papa from 'papaparse'
 import { documentKind } from '../lib/document-kind'
 import { signContentGrant } from './content'
 import type { Env } from './types'
+import { storageFor } from './storage'
 
 interface ThumbnailEntry {
   content_type: string
   r2_key: string
+  storage_backend_id: string | null
 }
 
 function escapeHtml(value: unknown): string {
@@ -118,19 +120,21 @@ export async function generateThumbnail(
   })
   const url = new URL(`/raw/session/${token}`, env.CONTENT_URL).toString()
   const entry = await env.DB.prepare(
-    'SELECT content_type, r2_key FROM artifact_file WHERE version_id = ? AND path = ?',
+    'SELECT content_type, r2_key, storage_backend_id FROM artifact_file WHERE version_id = ? AND path = ?',
   )
     .bind(versionId, entryPath)
     .first<ThumbnailEntry>()
   const video = entry ? isVideo(entry.content_type, entryPath) : false
   let sheetRows: unknown[][] | null = null
   if (entry && !video) {
-    const object = await env.ARTIFACTS.get(entry.r2_key)
+    const object = await (
+      await storageFor(env, entry.storage_backend_id)
+    ).get(entry.r2_key)
     if (object) {
       sheetRows = await spreadsheetRows(
         entry.content_type,
         entryPath,
-        await object.arrayBuffer(),
+        await new Response(object.body).arrayBuffer(),
       )
     }
   }
@@ -206,14 +210,21 @@ export async function generateThumbnail(
     await browser.close()
   }
 
+  // The thumbnail shows the document, so it stays where the document is.
   const r2Key = `previews/${artifactId}/${versionId}.jpg`
-  await env.ARTIFACTS.put(r2Key, screenshot, {
-    httpMetadata: { contentType: 'image/jpeg', cacheControl: 'private' },
+  const backendId = entry?.storage_backend_id ?? null
+  await (
+    await storageFor(env, backendId)
+  ).put(r2Key, new Uint8Array(screenshot), {
+    contentType: 'image/jpeg',
+    size: screenshot.byteLength,
+    cacheControl: 'private',
   })
   await env.DB.prepare(
-    'UPDATE artifact_version SET preview_r2_key = ? WHERE id = ? AND artifact_id = ?',
+    `UPDATE artifact_version SET preview_r2_key = ?, preview_storage_backend_id = ?
+      WHERE id = ? AND artifact_id = ?`,
   )
-    .bind(r2Key, versionId, artifactId)
+    .bind(r2Key, backendId, versionId, artifactId)
     .run()
   return r2Key
 }

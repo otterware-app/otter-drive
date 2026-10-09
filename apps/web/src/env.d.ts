@@ -13,6 +13,8 @@ declare global {
     GOOGLE_CLIENT_ID: string
     GOOGLE_CLIENT_SECRET: string
     RESEND_API_KEY?: string
+    /** Keys bucket credentials at rest; BETTER_AUTH_SECRET when unset. */
+    STORAGE_CREDENTIALS_KEY?: string
     EMAIL_FROM?: string
     DB: D1Database
     ARTIFACTS: R2Bucket
