@@ -249,7 +249,8 @@ function PaletteCard({
       {
         id: 'sidebar',
         icon: <PaneIcon side="left" open className={ICON} />,
-        title: 'Toggle sidebar',
+        title: 'Show or hide the list',
+        keywords: 'sidebar full width',
         shortcut: sc('sidebar.toggle'),
         run: onToggleSidebar,
       },

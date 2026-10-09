@@ -6,7 +6,6 @@ import {
   DownloadIcon,
   EllipsisIcon,
   FileWarningIcon,
-  LinkIcon,
   Maximize2Icon,
   Minimize2Icon,
   UserPlusIcon,
@@ -28,7 +27,6 @@ import { TitleBand } from '../top-bar'
 import { ContentLoading } from './content-loading'
 import {
   DocumentMenuItems,
-  copyLink,
   downloadDocument,
   shareDocument,
 } from './document-menu'
@@ -212,14 +210,6 @@ export function DocumentViewer({
               <UserPlusIcon className="size-3.5" />
               Share
             </Button>
-            <HintTooltip label="Copy link" side="bottom">
-              <IconButton
-                label="Copy link"
-                onClick={() => void copyLink(artifact)}
-              >
-                <LinkIcon className="size-4" />
-              </IconButton>
-            </HintTooltip>
             <HintTooltip label="Download" side="bottom">
               <IconButton
                 label={`Download ${artifact.title}`}

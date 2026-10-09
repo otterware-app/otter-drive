@@ -10,13 +10,14 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   ArchiveIcon,
-  ArrowDownUpIcon,
+  ChevronDownIcon,
   ChevronRightIcon,
   EllipsisIcon,
   FilesIcon,
   FolderIcon,
   SearchIcon,
   SearchXIcon,
+  SlidersHorizontalIcon,
   UsersIcon,
   XIcon,
 } from 'lucide-react'
@@ -32,12 +33,14 @@ import {
   DropdownMenuCheckItem,
   DropdownMenuContent,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/menu'
 import { HintTooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { shortcutLabel } from '../keybindings/commands'
 import { useCommandHandlers } from '../keybindings/dispatch'
+import { useStoredBoolean } from '../panes'
 import { TitleBand } from '../top-bar'
 import { folderLabel, type Folder } from '../folders'
 import { DocumentMenuItems } from './document-menu'
@@ -53,8 +56,8 @@ import { requestUpload } from './upload-dialog'
 const OPEN_SEARCH_EVENT = 'otterdrive:open-search'
 let searchRequested = false
 
-/** Opens the list's search field (the sidebar's Search row, /), now or as
- *  soon as the list shows. */
+/** Opens the list's search field (/, the palette), now or as soon as the
+ *  list shows. */
 export function requestOpenSearch() {
   searchRequested = true
   window.dispatchEvent(new Event(OPEN_SEARCH_EVENT))
@@ -62,8 +65,8 @@ export function requestOpenSearch() {
 
 const SORTS = [
   { value: 'updated', label: 'Last updated' },
-  { value: 'az', label: 'Title, A to Z' },
-  { value: 'za', label: 'Title, Z to A' },
+  { value: 'az', label: 'Name, A to Z' },
+  { value: 'za', label: 'Name, Z to A' },
 ] as const
 
 /** Who shared something with you, and when (Shared with me's rows). */
@@ -91,10 +94,11 @@ export type ListEntry =
 type DocumentEntry = Extract<ListEntry, { type: 'document' }>
 
 /**
- * The list pane (Otter Mail's message list): a title band with where you are
- * (Google Drive's breadcrumbs), search and sort, then the folder's folders and
- * its documents. The open document stays lit; ↑↓ (or J/K) walk the
- * documents, opening as they go.
+ * The list pane (Otter Mail's message list, with Google Drive's way around):
+ * a title band with where you are (breadcrumbs), search, view options and
+ * the pane's actions, a row of filters, then the folder's folders and its
+ * documents. The open document stays lit; ↑↓ (or J/K) walk the documents,
+ * opening as they go.
  */
 export function DocumentList({
   entries,
@@ -106,6 +110,8 @@ export function DocumentList({
   search,
   selectedSlug,
   headerLeading,
+  actions,
+  filters,
   searchRef,
   emptyState,
   onOpenFolder,
@@ -123,6 +129,10 @@ export function DocumentList({
   search: DriveSearch
   selectedSlug: string | null
   headerLeading?: ReactNode
+  /** Controls at the title band's end (New). */
+  actions?: ReactNode
+  /** The filter chips under the title band. */
+  filters?: ReactNode
   searchRef: RefObject<HTMLInputElement | null>
   /** Replaces the default empty state (Shared with me's). */
   emptyState?: ReactNode
@@ -132,6 +142,10 @@ export function DocumentList({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [compact, setCompact] = useStoredBoolean(
+    'otterdrive:list-compact',
+    false,
+  )
   const [searching, setSearching] = useState(Boolean(search.q))
   const query = search.q ?? ''
   const showSearch = searching || Boolean(query)
@@ -282,16 +296,16 @@ export function DocumentList({
           </>
         )}
         <DropdownMenu>
-          <HintTooltip label="Sort" side="bottom">
+          <HintTooltip label="View options" side="bottom">
             <DropdownMenuTrigger
               render={
                 <IconButton
-                  label="Sort documents"
+                  label="View options"
                   active={Boolean(search.sort && search.sort !== 'updated')}
                 />
               }
             >
-              <ArrowDownUpIcon className="size-4" />
+              <SlidersHorizontalIcon className="size-4" />
             </DropdownMenuTrigger>
           </HintTooltip>
           <DropdownMenuContent align="end" className="min-w-48">
@@ -309,15 +323,34 @@ export function DocumentList({
                 {sort.label}
               </DropdownMenuCheckItem>
             ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Density</DropdownMenuLabel>
+            <DropdownMenuCheckItem
+              checked={!compact}
+              onClick={() => setCompact(false)}
+            >
+              Comfortable
+            </DropdownMenuCheckItem>
+            <DropdownMenuCheckItem
+              checked={compact}
+              onClick={() => setCompact(true)}
+            >
+              Compact
+            </DropdownMenuCheckItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        {actions}
       </TitleBand>
+      {filters}
 
       <div
         ref={scrollRef}
         role="list"
         aria-label="Folders and documents"
-        className="min-h-0 flex-1 overflow-y-auto pt-[9px] pb-1 [scrollbar-gutter:stable_both-edges]"
+        className={cn(
+          'min-h-0 flex-1 overflow-y-auto pb-1 [scrollbar-gutter:stable_both-edges]',
+          filters ? 'pt-1' : 'pt-[9px]',
+        )}
       >
         {error ? (
           <EmptyState
@@ -337,6 +370,7 @@ export function DocumentList({
                 key={`folder:${entry.folder.id}`}
                 folder={entry.folder}
                 sharedBy={entry.sharedBy}
+                compact={compact}
                 onOpen={() => onOpenFolder(entry.folder)}
               />
             ) : (
@@ -344,6 +378,7 @@ export function DocumentList({
                 key={entry.artifact.id}
                 entry={entry}
                 selected={entry.artifact.slug === selectedSlug}
+                compact={compact}
                 onPrefetch={() => prefetch(entry)}
               />
             ),
@@ -356,12 +391,16 @@ export function DocumentList({
 
 /**
  * Where you are, Google Drive's way: each folder up to the drive (or to
- * "Shared with me"), the open one last. A long way folds into "…".
+ * "Shared with me"), the open one last, opening its menu when it has one. A
+ * long way folds into "…".
  */
 export function Breadcrumbs({
   trail,
+  menu,
 }: {
   trail: Array<{ label: string; onClick?: (() => void) | undefined }>
+  /** What the open folder's crumb offers (New folder, Share, Rename…). */
+  menu?: ReactNode
 }) {
   const shown =
     trail.length > 3 ? [trail[0]!, { label: '…' }, ...trail.slice(-2)] : trail
@@ -384,7 +423,25 @@ export function Breadcrumbs({
                   last ? 'shrink truncate' : 'max-w-32 shrink-0 truncate',
                 )}
               >
-                {crumb.onClick && !last ? (
+                {last && menu ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <button
+                          type="button"
+                          aria-current="page"
+                          className="flex max-w-full items-center gap-0.5 rounded-md py-0.5 ps-1 pe-0.5 font-medium text-foreground outline-none hover:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring data-popup-open:bg-accent-surface"
+                        />
+                      }
+                    >
+                      <span className="truncate">{crumb.label}</span>
+                      <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="min-w-56">
+                      {menu}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : crumb.onClick && !last ? (
                   <button
                     type="button"
                     onClick={crumb.onClick}
@@ -517,10 +574,12 @@ const ROW_MENU_BUTTON =
 function FolderRow({
   folder,
   sharedBy,
+  compact,
   onOpen,
 }: {
   folder: Folder
   sharedBy?: SharedBy | undefined
+  compact: boolean
   onOpen: () => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -546,7 +605,8 @@ function FolderRow({
             />
           }
           className={cn(
-            'group relative flex w-full items-center gap-3 overflow-hidden rounded-lg px-3 py-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus-ring',
+            'group relative flex w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus-ring',
+            compact ? 'py-1.5' : 'py-2.5',
             menuOpen
               ? 'bg-sidebar-row-hover'
               : 'group-hover/row:bg-sidebar-row-hover',
@@ -554,24 +614,38 @@ function FolderRow({
         >
           <span
             aria-hidden
-            className="relative flex size-9 shrink-0 items-center justify-center rounded-md bg-accent-surface/70 text-icon-muted"
+            className={cn(
+              'relative flex shrink-0 items-center justify-center rounded-md bg-accent-surface/70 text-icon-muted',
+              compact ? 'size-6' : 'size-9',
+            )}
           >
-            <FolderIcon className="size-4.5" strokeWidth={1.75} />
-            {folder.shared || sharedBy ? (
+            <FolderIcon
+              className={compact ? 'size-3.5' : 'size-4.5'}
+              strokeWidth={1.75}
+            />
+            {(folder.shared || sharedBy) && !compact ? (
               <span className="absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full border border-canvas bg-foreground text-canvas">
                 <UsersIcon className="size-2.5" strokeWidth={2.5} />
               </span>
             ) : null}
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="min-w-0 truncate text-sm leading-snug font-medium text-foreground">
-              {folderLabel(folder)}
+            <span className="flex min-w-0 items-center gap-1.5 text-sm leading-snug font-medium text-foreground">
+              <span className="truncate">{folderLabel(folder)}</span>
+              {(folder.shared || sharedBy) && compact ? (
+                <UsersIcon
+                  aria-label="Shared"
+                  className="size-3 shrink-0 text-muted-foreground"
+                />
+              ) : null}
             </span>
-            <span className="truncate text-[13px] leading-snug text-muted-foreground">
-              {sharedBy
-                ? `${sharedByLabel(sharedBy)} · ${formatListDate(sharedBy.at)}`
-                : details.join(' · ')}
-            </span>
+            {compact ? null : (
+              <span className="truncate text-[13px] leading-snug text-muted-foreground">
+                {sharedBy
+                  ? `${sharedByLabel(sharedBy)} · ${formatListDate(sharedBy.at)}`
+                  : details.join(' · ')}
+              </span>
+            )}
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>
@@ -607,10 +681,12 @@ function FolderRow({
 function DocumentRow({
   entry,
   selected,
+  compact,
   onPrefetch,
 }: {
   entry: DocumentEntry
   selected: boolean
+  compact: boolean
   onPrefetch: () => void
 }) {
   const { artifact, folderSlug, folderId, sharedBy } = entry
@@ -634,7 +710,12 @@ function DocumentRow({
     // real height once it has rendered.
     <div
       role="listitem"
-      className="group/row relative px-1 py-px [contain-intrinsic-size:auto_68px] [content-visibility:auto]"
+      className={cn(
+        'group/row relative px-1 py-px [content-visibility:auto]',
+        compact
+          ? '[contain-intrinsic-size:auto_36px]'
+          : '[contain-intrinsic-size:auto_68px]',
+      )}
     >
       <ContextMenu>
         <ContextMenuTrigger
@@ -651,7 +732,8 @@ function DocumentRow({
             />
           }
           className={cn(
-            'group relative flex w-full items-start gap-3 overflow-hidden rounded-lg px-3 py-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus-ring',
+            'group relative flex w-full gap-3 overflow-hidden rounded-lg px-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus-ring',
+            compact ? 'items-center py-1.5' : 'items-start py-2.5',
             selected
               ? 'bg-sidebar-row-active'
               : menuOpen
@@ -659,11 +741,20 @@ function DocumentRow({
                 : 'group-hover/row:bg-sidebar-row-hover',
           )}
         >
-          <DocumentThumb artifact={artifact} className="mt-0.5 size-9" />
+          <DocumentThumb
+            artifact={artifact}
+            className={compact ? 'size-6 rounded' : 'mt-0.5 size-9'}
+          />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="min-w-0 truncate text-sm leading-snug font-medium text-foreground">
-                {artifact.title}
+              <span className="flex min-w-0 items-center gap-1.5 text-sm leading-snug font-medium text-foreground">
+                <span className="truncate">{artifact.title}</span>
+                {compact && artifact.shared && !sharedBy ? (
+                  <UsersIcon
+                    aria-label="Shared"
+                    className="size-3 shrink-0 text-muted-foreground"
+                  />
+                ) : null}
               </span>
               <span
                 className={cn(
@@ -675,26 +766,30 @@ function DocumentRow({
                 {formatListDate(sharedBy?.at ?? artifact.updatedAt)}
               </span>
             </div>
-            <span
-              className={cn(
-                'truncate text-[13px] leading-snug',
-                artifact.description || sharedBy
-                  ? 'text-muted-foreground'
-                  : 'text-muted-foreground/60',
-              )}
-            >
-              {sharedBy
-                ? sharedByLabel(sharedBy)
-                : artifact.description ||
-                  artifact.currentVersion?.entryPath ||
-                  artifact.slug}
-            </span>
-            <span className="flex min-w-0 items-center gap-1 truncate text-2xs text-muted-foreground/75">
-              {artifact.shared && !sharedBy ? (
-                <UsersIcon aria-hidden className="size-3 shrink-0" />
-              ) : null}
-              <span className="truncate">{details.join(' · ')}</span>
-            </span>
+            {compact ? null : (
+              <>
+                <span
+                  className={cn(
+                    'truncate text-[13px] leading-snug',
+                    artifact.description || sharedBy
+                      ? 'text-muted-foreground'
+                      : 'text-muted-foreground/60',
+                  )}
+                >
+                  {sharedBy
+                    ? sharedByLabel(sharedBy)
+                    : artifact.description ||
+                      artifact.currentVersion?.entryPath ||
+                      artifact.slug}
+                </span>
+                <span className="flex min-w-0 items-center gap-1 truncate text-2xs text-muted-foreground/75">
+                  {artifact.shared && !sharedBy ? (
+                    <UsersIcon aria-hidden className="size-3 shrink-0" />
+                  ) : null}
+                  <span className="truncate">{details.join(' · ')}</span>
+                </span>
+              </>
+            )}
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>{menu}</ContextMenuContent>
@@ -707,6 +802,7 @@ function DocumentRow({
               aria-label={`Actions for ${artifact.title}`}
               className={cn(
                 ROW_MENU_BUTTON,
+                compact && 'top-1/2 -translate-y-1/2',
                 menuOpen
                   ? 'opacity-100'
                   : 'opacity-0 group-focus-within/row:opacity-100 group-hover/row:opacity-100',

@@ -15,9 +15,11 @@ Laid out like Otter Mail's renderer, and styled like it (its design tokens, in
 
 - `components/ui/`: primitives in the Otter Mail style (button, menu, dialog,
   select, input, field, tooltip, toast, empty state), on Base UI.
-- `main/`: the app. `home-view.tsx` is the window (drive rail, sidebar, list,
-  main pane); `drive/` holds documents (list, viewer, editor, palette,
-  dialogs); `settings/` the Settings panes; `keybindings/` the shortcuts;
+- `main/`: the app. `home-view.tsx` is the window (drive rail, list, main
+  pane; a sidebar only for Settings). Folders are navigated in the list
+  itself: breadcrumbs with the open folder's menu, Up (⌥↑), folder rows, and
+  filter chips (`drive/list-filters.tsx`). `drive/` holds documents (list,
+  viewer, editor, palette, dialogs); `settings/` the Settings panes; `keybindings/` the shortcuts;
   `auth/` the sign-in pages' shell; `folders.ts` the drives, recursive folders,
   the open folder and Shared with me. `drive/share-dialog.tsx` is the Share
   dialog for folders, documents and shared drive members.

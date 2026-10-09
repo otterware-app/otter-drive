@@ -12,7 +12,10 @@ import type { Artifact, SharedItem } from '@otterware/contracts'
 import { EmptyState } from '@/components/ui/empty-state'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
-import { UsersIcon } from 'lucide-react'
+import { ArrowLeftIcon, UploadIcon, UsersIcon } from 'lucide-react'
+import { IconButton } from '@/components/ui/button'
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/menu'
+import { HintTooltip } from '@/components/ui/tooltip'
 import { CommandPalette } from './drive/command-palette'
 import { DeleteDocumentDialogHost } from './drive/delete-dialog'
 import {
@@ -29,9 +32,10 @@ import {
   visibleDocuments,
   type DriveSearch,
 } from './drive/documents'
-import { DriveSidebar } from './drive/drive-sidebar'
 import { DropOverlay, useDropUpload } from './drive/drop-upload'
 import { FolderDialogsHost } from './drive/folder-dialogs'
+import { FolderMenuItems } from './drive/folder-menu'
+import { ListFilters, NewMenu } from './drive/list-filters'
 import { NewFolderDialog, NewFolderDialogHost } from './drive/new-folder-dialog'
 import { FolderRail, useCanCreateFolders } from './drive/folder-rail'
 import { ShareDialogHost } from './drive/share-dialog'
@@ -45,6 +49,7 @@ import {
 } from './panes'
 import { SettingsNav } from './settings/settings-nav'
 import { useFolderRole } from './folder-role'
+import { shortcutLabel } from './keybindings/commands'
 import { SidebarControl } from './top-bar'
 import {
   driveForFolder,
@@ -60,13 +65,14 @@ import {
  * The window (Otter Mail's home-view.tsx): ChatGPT-style chrome where the
  * frame wears the sidebar's surface, the rail of drives runs down its left
  * edge, and the columns after it share one inset panel with rounded
- * corners: the sidebar (folders and views, or Settings' sections), the list,
- * and the main pane (the overview, a document, or a Settings pane) that the
- * routes fill.
+ * corners: the list (or, in Settings, its sections) and the main pane (the
+ * overview, a document, or a Settings pane) that the routes fill.
  *
- * The list shows the open folder (`?folder=` in the URL, so Back walks
- * folders), or "Shared with me" (`?view=shared`): the folders and documents
- * other people shared with you, Google Drive's way.
+ * The list is the way around, like a file manager: the open folder
+ * (`?folder=` in the URL, so Back walks folders) with its folders first,
+ * breadcrumbs and Up above them, and filter chips for kinds, this week and
+ * the archive. "Shared with me" (`?view=shared`) lists the folders and
+ * documents other people shared with you, Google Drive's way.
  */
 
 export type Place =
@@ -95,7 +101,7 @@ interface DriveContextValue {
   openFolder: (folder: Folder) => void
   openShared: () => void
   narrow: boolean
-  /** The viewer has the window: sidebar and list hidden. */
+  /** The viewer has the window: the list hidden. */
   expanded: boolean
   toggleExpanded: () => void
   /** Nothing sits left of the main pane (its corner follows the panel's). */
@@ -110,8 +116,8 @@ export function useDrive(): DriveContextValue {
   return value
 }
 
-/** The sidebar's body sits in the panel, between the frame's tone and the
-    canvas, with a faint full-height divider before the list. */
+/** Settings' sections sit in the panel, between the frame's tone and the
+    canvas, with a faint full-height divider before the pane. */
 const PANE_SIDEBAR =
   'min-h-0 overflow-hidden relative text-sidebar-foreground before:pointer-events-none before:absolute before:bottom-px before:left-px before:right-0 before:top-[calc(var(--workspace-topbar-height)+1px)] before:-z-10 before:rounded-l-[calc(var(--radius-xl)-1px)] before:bg-(--sidebar-panel-surface) after:pointer-events-none after:absolute after:bottom-0 after:right-0 after:top-0 after:w-px after:bg-border/70'
 /** A faint full-height divider on the list's right, through the title band. */
@@ -203,6 +209,7 @@ export function DriveHome({
   const listSource = useDocuments(folder?.id, status)
   const { put, removed } = useDocumentActions(folder?.id)
 
+  // What the filter chips count.
   const sharedDocuments = useMemo(
     () =>
       shared.listed.flatMap((item) => (item.artifact ? [item.artifact] : [])),
@@ -291,7 +298,8 @@ export function DriveHome({
     }
   }, [sharedView, shared.listed, folder, folders, listSource.documents, search])
 
-  // Layout: the sidebar (a drawer on phones), the list, and full width.
+  // Layout: Settings' sections (a drawer on phones), the list, and the
+  // viewer at full width.
   const [sidebarOpen, setSidebarOpen] = useStoredBoolean(
     'otterdrive:sidebar-open',
     true,
@@ -306,7 +314,7 @@ export function DriveHome({
   const settingsOpen = place.kind === 'settings'
   const documentOpen = place.kind === 'document'
   const viewerExpanded = documentOpen && expanded && !narrow
-  const showSidebar = !narrow && sidebarOpen && !viewerExpanded
+  const showSidebar = settingsOpen && !narrow && sidebarOpen
   const showList =
     !settingsOpen && !viewerExpanded && (!narrow || !documentOpen)
   const showMain = !narrow || documentOpen || settingsOpen
@@ -314,12 +322,13 @@ export function DriveHome({
     if (!narrow) setDrawerOpen(false)
   }, [narrow])
 
+  // ⌘B: Settings' sections there; with a document open, the list.
   const toggleSidebar = () => {
-    if (narrow) setDrawerOpen((open) => !open)
-    else if (viewerExpanded) {
-      setExpanded(false)
-      setSidebarOpen(true)
-    } else setSidebarOpen((open) => !open)
+    if (settingsOpen) {
+      if (narrow) setDrawerOpen((open) => !open)
+      else setSidebarOpen((open) => !open)
+    } else if (documentOpen && !narrow) setExpanded((current) => !current)
+    else return false
   }
 
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -365,6 +374,22 @@ export function DriveHome({
   }
 
   const drives = folders.filter((item) => !item.parentId)
+  const inSharedFolder = isInSharedFolder(folders, folder)
+  const view = search.view ?? 'all'
+  // Up: the folder above, or "Shared with me" above a folder shared with you.
+  const parentFolder = folder?.parentId
+    ? (folders.find((item) => item.id === folder.parentId) ?? null)
+    : null
+  const goUp =
+    sharedView || !folder || view !== 'all'
+      ? null
+      : parentFolder
+        ? () => openFolder(parentFolder)
+        : inSharedFolder
+          ? openShared
+          : null
+  const canAdd = Boolean(folder) && folder?.role !== 'viewer' && !sharedView
+
   useCommandHandlers({
     'commandPalette.toggle': () => setPaletteOpen((open) => !open),
     'sidebar.toggle': toggleSidebar,
@@ -376,6 +401,10 @@ export function DriveHome({
     'document.close': () => {
       if (!documentOpen) return false
       goHome()
+    },
+    'folder.up': () => {
+      if (!goUp || !showList) return false
+      goUp()
     },
     ...Object.fromEntries(
       drives
@@ -408,11 +437,9 @@ export function DriveHome({
     mainIsLeftmost: !showSidebar && !showList,
   }
 
-  const inSharedFolder = isInSharedFolder(folders, folder)
-  const view = search.view ?? 'all'
   const heading = sharedView ? (
     <Breadcrumbs trail={[{ label: 'Shared with me' }]} />
-  ) : folder && view === 'all' ? (
+  ) : folder ? (
     <Breadcrumbs
       trail={[
         ...(inSharedFolder
@@ -423,19 +450,33 @@ export function DriveHome({
           onClick: () => openFolder(item),
         })),
       ]}
+      menu={
+        <>
+          {canAdd ? (
+            <>
+              <DropdownMenuItem
+                icon={<UploadIcon />}
+                accelerator={shortcutLabel('document.upload')}
+                onClick={requestUpload}
+              >
+                Upload files or a folder
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
+          <FolderMenuItems
+            folder={folder}
+            onDeleted={(deleted) => {
+              const parent = folders.find(
+                (item) => item.id === deleted.parentId,
+              )
+              if (parent) openFolder(parent)
+            }}
+          />
+        </>
+      }
     />
-  ) : (
-    <span className="truncate">
-      {`${totalInView} ${totalInView === 1 ? 'document' : 'documents'}${
-        view === 'archived'
-          ? ' archived'
-          : view === 'recent'
-            ? ' this week'
-            : ''
-      }`}
-      {folder ? ` in ${folderLabel(folder)}` : ''}
-    </span>
-  )
+  ) : null
 
   const sidebarContent = settingsOpen ? (
     <SettingsNav
@@ -446,31 +487,7 @@ export function DriveHome({
       }}
       onBack={() => goHome()}
     />
-  ) : (
-    <DriveSidebar
-      folder={folder}
-      folders={folders}
-      sharedView={sharedView}
-      sharedDocuments={sharedDocuments}
-      documents={active.documents}
-      search={search}
-      onOpenFolder={openFolder}
-      onOpenShared={openShared}
-      onNavigate={(update) => {
-        setDrawerOpen(false)
-        goHome({ ...update, q: undefined })
-      }}
-      onUpload={() => {
-        setDrawerOpen(false)
-        requestUpload()
-      }}
-      onNewFolder={() => {
-        setDrawerOpen(false)
-        setNewFolderOpen(true)
-      }}
-      onSearch={focusSearch}
-    />
-  )
+  ) : null
 
   return (
     <DriveContext value={context}>
@@ -529,6 +546,44 @@ export function DriveHome({
                 <DocumentList
                   entries={entries}
                   heading={heading}
+                  headerLeading={
+                    goUp ? (
+                      <HintTooltip
+                        label="Up"
+                        hint={shortcutLabel('folder.up')}
+                        side="bottom"
+                      >
+                        <IconButton
+                          label="Up to the folder above"
+                          className="-ms-1.5"
+                          onClick={goUp}
+                        >
+                          <ArrowLeftIcon className="size-4" />
+                        </IconButton>
+                      </HintTooltip>
+                    ) : null
+                  }
+                  actions={
+                    sharedView ? null : (
+                      <NewMenu
+                        disabled={!canAdd}
+                        onNewFolder={() => setNewFolderOpen(true)}
+                        onUpload={requestUpload}
+                      />
+                    )
+                  }
+                  filters={
+                    sharedView || folder ? (
+                      <ListFilters
+                        documents={
+                          sharedView ? sharedDocuments : active.documents
+                        }
+                        search={search}
+                        sharedView={sharedView}
+                        onChange={(update) => onSearchChange(update)}
+                      />
+                    ) : null
+                  }
                   searchPlaceholder={
                     sharedView
                       ? 'Search Shared with me'
@@ -593,10 +648,12 @@ export function DriveHome({
         </div>
       </div>
 
-      <SidebarControl
-        sidebarOpen={narrow ? drawerOpen : showSidebar}
-        onToggleSidebar={toggleSidebar}
-      />
+      {settingsOpen ? (
+        <SidebarControl
+          sidebarOpen={narrow ? drawerOpen : showSidebar}
+          onToggleSidebar={toggleSidebar}
+        />
+      ) : null}
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
