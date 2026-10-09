@@ -10,7 +10,9 @@
 
 ## The web app (`apps/web/src`)
 
-Laid out like Otter Mail's renderer, and styled like it (its design tokens, in
+Laid out like Otter Mail in a browser tab (the content panel fills the page
+beside the rail, rounded only against it), with no hover or state
+transitions: everything changes instantly. Styled like Otter Mail (its design tokens, in
 `styles.css`):
 
 - `components/ui/`: primitives in the Otter Mail style (button, menu, dialog,
@@ -19,7 +21,9 @@ Laid out like Otter Mail's renderer, and styled like it (its design tokens, in
   pane; a sidebar only for Settings). Folders are navigated in the list
   itself: breadcrumbs with the open folder's menu, Up (⌥↑), folder rows, and
   filter chips (`drive/list-filters.tsx`). `drive/` holds documents (list,
-  viewer, editor, palette, dialogs); `settings/` the Settings panes; `keybindings/` the shortcuts;
+  viewer, editor, palette, dialogs); `settings/` the Settings panes, in
+  two groups: Account (yours) and Drive (General, Members, Storage, for the
+  drive picked by `DriveScope` at the top of each page); `keybindings/` the shortcuts;
   `auth/` the sign-in pages' shell; `folders.ts` the drives, recursive folders,
   the open folder and Shared with me. `drive/share-dialog.tsx` is the Share
   dialog for folders, documents and shared drive members.

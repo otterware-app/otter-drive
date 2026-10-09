@@ -224,7 +224,7 @@ export function DocumentList({
       <TitleBand>
         {headerLeading}
         {showSearch ? (
-          <div className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-full bg-foreground/[0.06] ps-3 pe-2 transition-colors focus-within:bg-foreground/[0.08]">
+          <div className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-full bg-foreground/[0.06] ps-3 pe-2 focus-within:bg-foreground/[0.08]">
             <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
             <input
               ref={searchRef}
@@ -267,7 +267,7 @@ export function DocumentList({
                   onSearchChange({ q: undefined })
                   searchRef.current?.focus()
                 }}
-                className="flex size-4 shrink-0 items-center justify-center rounded-full bg-muted-foreground text-canvas outline-none transition-colors hover:bg-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+                className="flex size-4 shrink-0 items-center justify-center rounded-full bg-muted-foreground text-canvas outline-none hover:bg-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
               >
                 <XIcon className="size-2.5" strokeWidth={3} />
               </button>
@@ -569,7 +569,7 @@ function sharedByLabel(sharedBy: SharedBy) {
 
 /** The row's "…" menu, where its date sits until it's hovered. */
 const ROW_MENU_BUTTON =
-  'absolute top-2 right-3.5 flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-foreground/[0.07] hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-focus-ring'
+  'absolute top-2 right-3.5 flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/[0.07] hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-focus-ring'
 
 function FolderRow({
   folder,
@@ -605,7 +605,7 @@ function FolderRow({
             />
           }
           className={cn(
-            'group relative flex w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus-ring',
+            'group relative flex w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring',
             compact ? 'py-1.5' : 'py-2.5',
             menuOpen
               ? 'bg-sidebar-row-hover'
@@ -732,7 +732,7 @@ function DocumentRow({
             />
           }
           className={cn(
-            'group relative flex w-full gap-3 overflow-hidden rounded-lg px-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus-ring',
+            'group relative flex w-full gap-3 overflow-hidden rounded-lg px-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring',
             compact ? 'items-center py-1.5' : 'items-start py-2.5',
             selected
               ? 'bg-sidebar-row-active'

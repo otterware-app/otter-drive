@@ -276,19 +276,13 @@ export function DocumentViewer({
         ) : null}
       </TitleBand>
 
-      {/* The document, inside the panel's 1px edge and clipped to its
-          rounded corners: the right ones, and the left ones with nothing to
-          its left. */}
-      <div
-        className={cn(
-          'flex min-h-0 flex-1 pt-px pr-px pb-px',
-          roundedLeft && 'pl-px',
-        )}
-      >
+      {/* The document fills the pane to the page's edges; with nothing to
+          its left, it keeps clear of the panel's edge and rounded corner. */}
+      <div className={cn('flex min-h-0 flex-1', roundedLeft && 'pl-px')}>
         <div
           className={cn(
-            'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-r-[calc(var(--radius-xl)-1px)]',
-            roundedLeft && 'rounded-l-[calc(var(--radius-xl)-1px)]',
+            'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
+            roundedLeft && 'rounded-bl-[calc(var(--radius-xl)-1px)]',
           )}
         >
           {error ? (

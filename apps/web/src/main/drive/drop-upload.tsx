@@ -107,7 +107,7 @@ export function DropOverlay({ folder }: { folder: Folder | null }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute top-(--workspace-topbar-height) right-1 bottom-1 left-0 z-50 flex items-center justify-center rounded-xl border-2 border-dashed border-focus-ring/60 bg-canvas/80 backdrop-blur-sm animate-[dialog-fade-in_140ms_ease-out]"
+      className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center rounded-xl border-2 border-dashed border-focus-ring/60 bg-canvas/80 backdrop-blur-sm animate-[dialog-fade-in_140ms_ease-out]"
     >
       <div className="flex flex-col items-center gap-3 text-center">
         <span className="flex size-12 items-center justify-center rounded-2xl bg-focus-ring/10 text-focus-ring">

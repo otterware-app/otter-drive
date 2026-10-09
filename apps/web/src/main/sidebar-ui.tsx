@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
  */
 
 export const SIDEBAR_ROW =
-  "group flex h-8 w-full items-center gap-2.5 rounded-lg text-left text-sm font-normal outline-none transition-[background-color,color] focus-visible:ring-2 focus-visible:ring-focus-ring active:bg-sidebar-row-active [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0"
+  "group flex h-8 w-full items-center gap-2.5 rounded-lg text-left text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-focus-ring active:bg-sidebar-row-active [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0"
 
 export const SIDEBAR_ROW_IDLE =
   'text-sidebar-foreground/90 hover:bg-sidebar-row-hover hover:text-sidebar-foreground'
@@ -107,7 +107,7 @@ export function SidebarSection({
           {title}
           <ChevronDownIcon
             className={cn(
-              'size-3.5 transition-[opacity,transform]',
+              'size-3.5',
               open ? 'opacity-0 group-hover:opacity-100' : '-rotate-90',
             )}
           />
@@ -124,8 +124,7 @@ export function SidebarSection({
   )
 }
 
-/** The sidebar's heading: the folder's name, or "Settings" (Codex's "Codex"),
- *  past the panel's rounded corner. */
+/** The sidebar's heading ("Settings"), level with the panes' title bands. */
 export function SidebarHeading({
   children,
   action,
@@ -135,7 +134,7 @@ export function SidebarHeading({
   action?: ReactNode
 }) {
   return (
-    <div className="flex shrink-0 items-center gap-1 px-(--sidebar-content-inset) pt-(--radius-xl) pb-2">
+    <div className="flex h-(--workspace-topbar-height) shrink-0 items-center gap-1 px-(--sidebar-content-inset)">
       <h2 className="flex h-9 min-w-0 flex-1 items-center px-(--sidebar-row-content-inset) text-base font-semibold tracking-tight text-sidebar-foreground">
         <span className="truncate">{children}</span>
       </h2>

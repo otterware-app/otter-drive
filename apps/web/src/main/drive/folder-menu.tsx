@@ -1,4 +1,5 @@
 import {
+  FolderInputIcon,
   FolderOpenIcon,
   FolderPlusIcon,
   LinkIcon,
@@ -24,9 +25,9 @@ export function shareFolder(folder: Folder) {
 }
 
 /**
- * What you can do to a folder, wherever it shows (the list, the sidebar's
- * tree): open it, share it (a shared drive manages its members), copy its
- * link, add a folder inside, rename it, and delete it once it's empty.
+ * What you can do to a folder, wherever it shows (its row, the breadcrumb):
+ * open it, share it (a shared drive manages its members), copy its link, add
+ * a folder inside, rename or move it, and delete it once it's empty.
  */
 export function FolderMenuItems({
   folder,
@@ -86,6 +87,14 @@ export function FolderMenuItems({
           onClick={() => requestFolderDialog({ action: 'rename', folder })}
         >
           Rename…
+        </DropdownMenuItem>
+      ) : null}
+      {!isDrive && folder.role === 'owner' ? (
+        <DropdownMenuItem
+          icon={<FolderInputIcon />}
+          onClick={() => requestFolderDialog({ action: 'move', folder })}
+        >
+          Move to…
         </DropdownMenuItem>
       ) : null}
       {folder.role === 'owner' && folder.kind !== 'personal' ? (

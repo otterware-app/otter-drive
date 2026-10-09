@@ -172,7 +172,7 @@ function UploadDialog({
           pick(event.dataTransfer.files)
         }}
         className={cn(
-          'flex min-h-32 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-input bg-surface-raised/40 px-4 py-5 text-center transition-colors',
+          'flex min-h-32 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-input bg-surface-raised/40 px-4 py-5 text-center',
           dragging && 'border-focus-ring bg-focus-ring/5',
         )}
       >

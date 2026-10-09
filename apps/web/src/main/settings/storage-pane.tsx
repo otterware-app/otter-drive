@@ -15,7 +15,8 @@ import { Input } from '@/components/ui/input'
 import { RowSelect } from '@/components/ui/select'
 import { toast } from '@/components/ui/toast'
 import { formatBytes, formatRelative } from '../drive/documents'
-import { driveForFolder, folderLabel, useFolders } from '../folders'
+import { folderLabel } from '../folders'
+import { DriveScope, useSettingsDrive } from './drive-scope'
 import {
   SettingsPageContainer,
   SettingsRow,
@@ -29,8 +30,7 @@ import {
  * taking new uploads. Files stay where they were written.
  */
 export function StoragePane() {
-  const { folders, activeFolder } = useFolders()
-  const drive = driveForFolder(folders, activeFolder)
+  const { drive } = useSettingsDrive()
   const owner = Boolean(drive && !drive.parentId && drive.role === 'owner')
   const queryClient = useQueryClient()
   const queryKey = ['drive-storage', drive?.id]
@@ -101,6 +101,7 @@ export function StoragePane() {
   const data = query.data
   return (
     <SettingsPageContainer
+      scope={<DriveScope />}
       title="Storage"
       description={
         drive

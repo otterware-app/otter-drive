@@ -61,7 +61,7 @@ function errorDescriptionClampClass(
 const toastCornerDismissClass = 'absolute z-20 -top-1.5 -right-1.5'
 const toastCornerOrbClass = cn(
   'inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border/60 bg-popover/92 text-muted-foreground shadow-sm outline-none backdrop-blur-sm',
-  'transition-[color,background-color,box-shadow] hover:bg-popover hover:text-foreground',
+  'hover:bg-popover hover:text-foreground',
   'focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-1',
 )
 
@@ -292,7 +292,7 @@ function Toasts({ position }: { position: ToastPosition }) {
               </div>
               <Toast.Content
                 className={cn(
-                  'pointer-events-auto flex min-h-0 items-center justify-between gap-2 overflow-y-visible py-3 pl-4 text-sm transition-opacity duration-250 [overflow-x:clip] data-expanded:opacity-100',
+                  'pointer-events-auto flex min-h-0 items-center justify-between gap-2 overflow-y-visible py-3 pl-4 text-sm [overflow-x:clip] data-expanded:opacity-100',
                   hasTrailingControls ? 'pr-6' : 'pr-10',
                   hideCollapsedContent &&
                     'not-data-expanded:pointer-events-none not-data-expanded:opacity-0',

@@ -107,7 +107,7 @@ export function PaneResizer({
         onPointerDown={onPointerDown}
         className="group absolute inset-y-0 -left-[3px] flex w-1.5 cursor-col-resize justify-center"
       >
-        <div className="w-px transition-colors group-hover:bg-input" />
+        <div className="w-px group-hover:bg-input" />
       </div>
     </div>
   )

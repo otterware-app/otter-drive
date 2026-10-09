@@ -571,7 +571,7 @@ function RoleMenu({
           <button
             type="button"
             className={cn(
-              'flex h-8 shrink-0 items-center gap-1 rounded-lg px-2.5 text-[13px] text-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-64 data-popup-open:bg-accent-surface',
+              'flex h-8 shrink-0 items-center gap-1 rounded-lg px-2.5 text-[13px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-64 data-popup-open:bg-accent-surface',
               ghost
                 ? 'hover:bg-accent-surface'
                 : 'border border-border/70 bg-surface-raised/60 hover:bg-surface-raised',
@@ -831,7 +831,7 @@ function PeopleInput({
           }
         }}
         className={cn(
-          'flex min-h-9 w-full cursor-text flex-wrap items-center gap-1 rounded-lg border border-border/70 bg-surface-raised/60 px-1.5 py-1 transition-[box-shadow,border-color,background-color]',
+          'flex min-h-9 w-full cursor-text flex-wrap items-center gap-1 rounded-lg border border-border/70 bg-surface-raised/60 px-1.5 py-1',
           focused &&
             'border-focus-ring/60 bg-canvas ring-[3px] ring-focus-ring/16',
           invalid && 'border-destructive/36',
