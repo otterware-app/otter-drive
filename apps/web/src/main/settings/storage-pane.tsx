@@ -299,6 +299,7 @@ function ConnectStorageDialog({
         provider: 'azure',
         account: form.account,
         container: form.container,
+        ...(form.endpoint.trim() ? { endpoint: form.endpoint } : {}),
         ...(form.sasToken.trim()
           ? { sasToken: form.sasToken }
           : { accountKey: form.accountKey }),
@@ -420,6 +421,16 @@ function ConnectStorageDialog({
         ) : null}
         {preset === 'azure' ? (
           <>
+            <Field
+              label="Blob endpoint"
+              description="Leave empty for Azure’s public cloud; set it for Azure Government, China or a private endpoint."
+            >
+              <Input
+                value={form.endpoint}
+                onChange={set('endpoint')}
+                placeholder="https://<account>.blob.core.windows.net"
+              />
+            </Field>
             <Field
               label="Account key"
               description="Or leave it empty and give a SAS token for the container."

@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { azureDriver, sharedKeySignature } from './azure'
 import { openCredentials, sealCredentials } from './credentials'
 import type { StorageDriver } from './driver'
+import { driverFor, probeStorage } from './index'
 import { bucketBase, encodeKey, s3Driver } from './s3'
 
 /**
@@ -280,5 +281,31 @@ describe.runIf(AZURE)('Azure driver against a live server', () => {
       accountKey: btoa('not the key'),
     })
     await expect(storage.head('nothing')).rejects.toThrow(/refused/)
+  })
+})
+
+/**
+ * A real Cloud Storage bucket, through its XML API and an HMAC key:
+ *   STORAGE_TEST_GCS_BUCKET, STORAGE_TEST_GCS_KEY, STORAGE_TEST_GCS_SECRET
+ */
+const GCS_BUCKET = process.env.STORAGE_TEST_GCS_BUCKET
+describe.runIf(GCS_BUCKET)('GCS driver against Cloud Storage', () => {
+  const credentials = {
+    accessKeyId: process.env.STORAGE_TEST_GCS_KEY ?? '',
+    secretAccessKey: process.env.STORAGE_TEST_GCS_SECRET ?? '',
+  }
+  exercise('gcs', () =>
+    driverFor(
+      { provider: 'gcs', bucket: GCS_BUCKET!, prefix: 'drivers-test/' },
+      credentials,
+    ),
+  )
+  it('gcs: passes the check Drive runs before connecting', async () => {
+    await probeStorage(
+      driverFor(
+        { provider: 'gcs', bucket: GCS_BUCKET!, prefix: 'drivers-test/' },
+        credentials,
+      ),
+    )
   })
 })

@@ -23,8 +23,6 @@ export interface S3Location {
   prefix: string
   /** Bucket in the path rather than the host name. */
   pathStyle: boolean
-  /** Metadata header prefix: `x-amz-meta-` (S3) or `x-goog-meta-` (GCS). */
-  metaPrefix?: string | undefined
 }
 
 export interface S3Credentials {
@@ -92,7 +90,6 @@ export function s3Driver(
     retries: 0,
   })
   const base = bucketBase(location)
-  const meta = location.metaPrefix ?? 'x-amz-meta-'
   const url = (key: string, query = '') =>
     `${base}${encodeKey(location.prefix + key)}${query}`
   const send = (target: string, init: RequestInit) =>
@@ -107,7 +104,9 @@ export function s3Driver(
     const result: Record<string, string> = {
       'content-type': options.contentType,
     }
-    if (options.sha256) result[`${meta}sha256`] = options.sha256
+    // GCS takes x-amz-meta- too, and refuses x-goog- headers beside SigV4's
+    // x-amz- ones.
+    if (options.sha256) result['x-amz-meta-sha256'] = options.sha256
     if (options.cacheControl) result['cache-control'] = options.cacheControl
     return result
   }
@@ -118,7 +117,9 @@ export function s3Driver(
       size: Number(
         total && total !== '*' ? total : response.headers.get('content-length'),
       ),
-      sha256: response.headers.get(`${meta}sha256`),
+      sha256:
+        response.headers.get('x-amz-meta-sha256') ??
+        response.headers.get('x-goog-meta-sha256'),
       etag: response.headers.get('etag') ?? '',
       contentType: response.headers.get('content-type'),
     }

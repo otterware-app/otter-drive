@@ -56,7 +56,6 @@ export function driverFor(
           bucket: location.bucket,
           prefix: location.prefix,
           pathStyle: true,
-          metaPrefix: 'x-goog-meta-',
         },
         {
           accessKeyId: credentials.accessKeyId!,
