@@ -15,6 +15,9 @@ import { artifactBootstrapQuery } from '#/lib/artifact-query'
 import { Button, IconButton } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
   DropdownMenu,
   DropdownMenuCheckItem,
   DropdownMenuContent,
@@ -124,6 +127,27 @@ export function DocumentViewer({
           },
     )
 
+  // The "…" menu, and the title's right-click.
+  const actions = artifact ? (
+    <DocumentMenuItems
+      artifact={artifact}
+      folderId={folderId}
+      {...(selected ? { version: selected.number } : {})}
+      onMoved={(moved, destination) =>
+        void navigate({
+          to: '/$folderSlug/a/$slug',
+          params: { folderSlug: destination.slug, slug: moved.slug },
+        })
+      }
+      onDeleted={() =>
+        void navigate({
+          to: '/home',
+          search: (current) => ({ ...current, sheet: undefined }),
+        })
+      }
+    />
+  ) : null
+
   return (
     <div className="flex h-full min-w-0 flex-col">
       <TitleBand className="gap-1.5">
@@ -131,9 +155,18 @@ export function DocumentViewer({
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           {artifact ? (
             <>
-              <h1 className="min-w-0 truncate text-sm font-medium text-foreground">
-                {artifact.title}
-              </h1>
+              <ContextMenu>
+                <ContextMenuTrigger
+                  render={
+                    <h1 className="min-w-0 truncate text-sm font-medium text-foreground" />
+                  }
+                >
+                  {artifact.title}
+                </ContextMenuTrigger>
+                <ContextMenuContent className="min-w-56">
+                  {actions}
+                </ContextMenuContent>
+              </ContextMenu>
               {selected ? (
                 <DropdownMenu>
                   <HintTooltip label="Versions" side="bottom">
@@ -229,26 +262,7 @@ export function DocumentViewer({
                 </DropdownMenuTrigger>
               </HintTooltip>
               <DropdownMenuContent align="end" className="min-w-56">
-                <DocumentMenuItems
-                  artifact={artifact}
-                  folderId={folderId}
-                  {...(selected ? { version: selected.number } : {})}
-                  onMoved={(moved, destination) =>
-                    void navigate({
-                      to: '/$folderSlug/a/$slug',
-                      params: {
-                        folderSlug: destination.slug,
-                        slug: moved.slug,
-                      },
-                    })
-                  }
-                  onDeleted={() =>
-                    void navigate({
-                      to: '/home',
-                      search: (current) => ({ ...current, sheet: undefined }),
-                    })
-                  }
-                />
+                {actions}
               </DropdownMenuContent>
             </DropdownMenu>
           </>

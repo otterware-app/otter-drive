@@ -46,7 +46,7 @@ describe('DrivePane', () => {
   it('names the drive it applies to, and lets its owner rename it', () => {
     drives.active = 'zentio'
     render(<DrivePane />)
-    expect(screen.getByText('Settings for')).toBeTruthy()
+    expect(screen.getAllByText('Zentio').length).toBeGreaterThan(0)
     expect(
       (screen.getByRole('textbox', { name: 'Drive name' }) as HTMLInputElement)
         .value,

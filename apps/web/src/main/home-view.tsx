@@ -12,7 +12,12 @@ import type { Artifact, SharedItem } from '@otterware/contracts'
 import { EmptyState } from '@/components/ui/empty-state'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
-import { ArrowLeftIcon, UploadIcon, UsersIcon } from 'lucide-react'
+import {
+  ArrowLeftIcon,
+  FolderPlusIcon,
+  UploadIcon,
+  UsersIcon,
+} from 'lucide-react'
 import { IconButton } from '@/components/ui/button'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/menu'
 import { HintTooltip } from '@/components/ui/tooltip'
@@ -442,6 +447,9 @@ export function DriveHome({
         ...folderPath(folders, folder).map((item) => ({
           label: folderLabel(item),
           onClick: () => openFolder(item),
+          contextMenu: (
+            <FolderMenuItems folder={item} onOpen={() => openFolder(item)} />
+          ),
         })),
       ]}
       menu={
@@ -496,6 +504,11 @@ export function DriveHome({
           sharedOpen={sharedView || inSharedFolder}
           reserveTop={settingsOpen && narrow}
           onSelectFolder={openFolder}
+          onOpenSettings={(drive) =>
+            void selectFolder(drive.id).then(() =>
+              navigate({ to: '/settings/$pane', params: { pane: 'drive' } }),
+            )
+          }
           onOpenShared={openShared}
         />
         {/* A browser tab has no window to frame (Otter Mail on the web): the
@@ -555,6 +568,25 @@ export function DriveHome({
                           <ArrowLeftIcon className="size-4" />
                         </IconButton>
                       </HintTooltip>
+                    ) : null
+                  }
+                  backgroundMenu={
+                    canAdd ? (
+                      <>
+                        <DropdownMenuItem
+                          icon={<FolderPlusIcon />}
+                          onClick={() => setNewFolderOpen(true)}
+                        >
+                          New folder
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          icon={<UploadIcon />}
+                          accelerator={shortcutLabel('document.upload')}
+                          onClick={requestUpload}
+                        >
+                          Upload files or a folder
+                        </DropdownMenuItem>
+                      </>
                     ) : null
                   }
                   actions={

@@ -14,6 +14,9 @@ import {
 import { useTheme } from 'next-themes'
 import { authClient } from '#/lib/auth-client'
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
   DropdownMenu,
   DropdownMenuCheckItem,
   DropdownMenuContent,
@@ -26,6 +29,7 @@ import { HintTooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { shortcutLabel, type KeybindingCommand } from '../keybindings/commands'
 import { folderLabel, type Folder } from '../folders'
+import { FolderMenuItems } from './folder-menu'
 import { NewFolderDialog } from './new-folder-dialog'
 import { FolderMark, UserAvatar } from './folder-mark'
 
@@ -59,6 +63,7 @@ export function FolderRail({
   sharedOpen = false,
   reserveTop = false,
   onSelectFolder,
+  onOpenSettings,
   onOpenShared,
 }: {
   /** Your drives: My Drive first, then the shared drives. */
@@ -71,6 +76,8 @@ export function FolderRail({
   /** Leave the title band free for the pinned sidebar toggle. */
   reserveTop?: boolean
   onSelectFolder: (folder: Folder) => void
+  /** A drive's settings, from its right-click menu. */
+  onOpenSettings?: (folder: Folder) => void
   onOpenShared?: () => void
 }) {
   const [newFolderOpen, setNewFolderOpen] = useState(false)
@@ -93,18 +100,42 @@ export function FolderRail({
         }
         side="right"
       >
-        <button
-          type="button"
-          aria-label={label}
-          aria-current={selected ? 'page' : undefined}
-          onClick={() => onSelectFolder(folder)}
-          className={cn(RAIL_BUTTON, selected && RAIL_BUTTON_SELECTED)}
-        >
-          <FolderMark
-            folder={folder}
-            className="size-6 rounded-md text-[10px]"
-          />
-        </button>
+        {/* Right-click: the drive's menu, and its settings. */}
+        <ContextMenu>
+          <ContextMenuTrigger
+            render={
+              <button
+                type="button"
+                aria-label={label}
+                aria-current={selected ? 'page' : undefined}
+                onClick={() => onSelectFolder(folder)}
+                className={cn(RAIL_BUTTON, selected && RAIL_BUTTON_SELECTED)}
+              />
+            }
+          >
+            <FolderMark
+              folder={folder}
+              className="size-6 rounded-md text-[10px]"
+            />
+          </ContextMenuTrigger>
+          <ContextMenuContent className="min-w-56">
+            <FolderMenuItems
+              folder={folder}
+              onOpen={() => onSelectFolder(folder)}
+            />
+            {onOpenSettings ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  icon={<SettingsIcon />}
+                  onClick={() => onOpenSettings(folder)}
+                >
+                  Drive settings
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </ContextMenuContent>
+        </ContextMenu>
       </HintTooltip>
     )
   }
