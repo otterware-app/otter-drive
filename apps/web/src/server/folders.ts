@@ -325,14 +325,37 @@ export async function deleteFolder(
       'forbidden',
       'Only the drive owner can delete folders.',
     )
-  const result = await env.DB.prepare(
-    `DELETE FROM folder WHERE id=? AND kind!='personal'
-    AND NOT EXISTS(SELECT 1 FROM folder child WHERE child.parent_id=folder.id)
-    AND NOT EXISTS(SELECT 1 FROM artifact a WHERE a.folder_id=folder.id)`,
+  // A drive's storage goes with it, unless documents moved to other drives
+  // are still stored there.
+  const storage = await env.DB.prepare(
+    `SELECT count(*) AS backends,
+       (SELECT count(*) FROM artifact_file f JOIN storage_backend b ON b.id=f.storage_backend_id WHERE b.drive_id=?1)
+       + (SELECT count(*) FROM artifact_version v JOIN storage_backend b ON b.id=v.preview_storage_backend_id WHERE b.drive_id=?1)
+       AS held
+     FROM storage_backend WHERE drive_id=?1`,
   )
     .bind(id)
-    .run()
-  if (!result.meta.changes)
+    .first<{ backends: number; held: number }>()
+  if (storage?.held)
+    throw new HttpError(
+      409,
+      'storage_in_use',
+      'Documents moved out of this drive are still stored in its storage. Delete them first.',
+    )
+  const empty = `id=?1 AND kind!='personal'
+    AND NOT EXISTS(SELECT 1 FROM folder child WHERE child.parent_id=folder.id)
+    AND NOT EXISTS(SELECT 1 FROM artifact a WHERE a.folder_id=folder.id)`
+  const [, , result] = await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE folder SET storage_backend_id=NULL WHERE ${empty}`,
+    ).bind(id),
+    env.DB.prepare(
+      `DELETE FROM storage_backend WHERE drive_id=?1
+       AND EXISTS(SELECT 1 FROM folder WHERE ${empty})`,
+    ).bind(id),
+    env.DB.prepare(`DELETE FROM folder WHERE ${empty}`).bind(id),
+  ])
+  if (!result?.meta.changes)
     throw new HttpError(
       409,
       'folder_not_empty',

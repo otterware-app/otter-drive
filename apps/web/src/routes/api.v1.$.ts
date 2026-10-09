@@ -32,6 +32,7 @@ import {
   uploadFile,
 } from '#/server/artifacts'
 import { createAuth } from '#/server/auth'
+import { driveStorage } from '#/server/storage-backends'
 import {
   acceptLink,
   artifactSharing,
@@ -93,6 +94,8 @@ async function route(request: Request): Promise<Response> {
       return driveMembers(request, env, actor, id, segments[3])
     if (id && segments[2] === 'sharing')
       return folderSharing(request, env, actor, id, segments.slice(3))
+    if (id && segments[2] === 'storage')
+      return driveStorage(request, env, actor, id, segments.slice(3))
     if (id && request.method === 'PATCH')
       return updateFolder(request, env, actor, id)
     if (id && request.method === 'DELETE') return deleteFolder(env, actor, id)

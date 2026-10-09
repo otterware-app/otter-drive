@@ -254,6 +254,30 @@ Migration `0007_sharing.sql` adds the `share` and `share_link` tables and rename
 
 Migration `0006_personal_folders.sql` converts the existing `chris` namespace to the personal drive and `zentio` to a shared drive, preserving IDs, slugs and R2 keys. Organizations are removed from the auth model and database. Existing document URLs and CLI credentials remain valid. The old organization header and list endpoint are read compatibility for installed CLIs; new clients use `folders` and `x-otterdrive-folder`.
 
+## Customer-owned storage
+
+A drive's owner can keep its documents in their own bucket (Settings →
+Storage): Amazon S3, Google Cloud Storage (XML API with an HMAC key),
+Azure Blob Storage (account key or SAS), Cloudflare R2, or any other
+S3-compatible service. Drive writes, reads and deletes a test file before
+connecting a bucket, and seals its credentials with AES-GCM under a key
+derived from `STORAGE_CREDENTIALS_KEY` (or `BETTER_AUTH_SECRET` when that
+isn't set), bound to the bucket's row. Credentials are never returned.
+
+- Every file, and every thumbnail, records the storage it was written to
+  (`storage_backend_id`; NULL is Otterware's R2). Choosing another storage
+  for new uploads moves nothing, and editing a document copies the files it
+  carries over into the new version's storage.
+- A bucket can't be disconnected while it takes new uploads or holds files,
+  and a drive can't be deleted while documents moved out of it are still in
+  its storage.
+- Bytes still flow through the Worker, which keeps uploads verified (size
+  and SHA-256 metadata) and content on the isolated content origin.
+- `src/server/storage/` holds the drivers (`r2.ts`, `s3.ts`, `azure.ts`) behind
+  one `StorageDriver` interface. `drivers.test.ts` runs them against live
+  servers when `STORAGE_TEST_S3` (e.g. SeaweedFS or MinIO) and
+  `STORAGE_TEST_AZURE` (Azurite) are set.
+
 ## Production trust boundary
 
 Artifact agents receive only Otter Drive device tokens or scoped API keys. They must not have Cloudflare API tokens, R2 credentials, production deployment credentials, or unreviewed access to the protected deployment branch.

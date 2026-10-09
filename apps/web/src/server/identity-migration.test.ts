@@ -15,7 +15,7 @@ it('transfers the existing identity and all ownership without changing document 
  INSERT INTO apikey(id,configId,referenceId,key,enabled,createdAt,updatedAt,permissions) VALUES('k','organization','zentio','keep-hash',1,'2026-01-01','2026-01-01','{"artifact":["read","create","update"]}');
  INSERT INTO artifact(id,organization_id,owner_user_id,created_by_actor_type,created_by_actor_id,slug,title,state,created_at,updated_at) VALUES('a','zentio',NULL,'user','old-drive','report','Report','published','2026-01-01','2026-01-01');
  INSERT INTO artifact_version(id,artifact_id,number,label,entry_path,created_at,created_by_user_id,file_count,byte_size,content_hash) VALUES('v','a',1,'Initial','index.html','2026-01-01','old-drive',1,1,'hash');
- INSERT INTO artifact_file VALUES('v','index.html','text/html',1,'hash','unchanged/r2-key');
+ INSERT INTO artifact_file(version_id,path,content_type,size,sha256,r2_key) VALUES('v','index.html','text/html',1,'hash','unchanged/r2-key');
  INSERT INTO artifact_upload(id,artifact_id,organization_id,actor_type,actor_id,actor_name,version_id,version_number,label,entry_path,manifest_json,state,created_at,expires_at) VALUES('upload','a','zentio','user','old-drive','Owner','v',1,'Initial','index.html','[]','complete','2026-01-01','2099-01-01');
  INSERT INTO audit_event(id,organization_id,actor_type,actor_id,actor_name,action,resource_type,resource_id,created_at) VALUES('audit','zentio','user','old-drive','Owner','created','artifact','a','2026-01-01');
  INSERT INTO deviceCode(id,deviceCode,userCode,userId,expiresAt,status) VALUES('device','device-token','user-code','old-drive','2099-01-01','approved');

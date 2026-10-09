@@ -33,3 +33,8 @@ Laid out like Otter Mail's renderer, and styled like it (its design tokens, in
   pathless `_app` layout, which keeps the window mounted and holds the list's
   URL state (view, kind, search, sort).
 - `server/`: the Worker's API, auth and content serving.
+- Storage (`server/storage/`): never touch `env.ARTIFACTS` directly. Read
+  and write bytes through `storageFor(env, row.storage_backend_id)` (or
+  `storageResolver` across many files); new uploads go to
+  `uploadStorageId(env, folderId)`. Each file row keeps the storage it was
+  written to; `server/storage-backends.ts` is the drive owner's API.

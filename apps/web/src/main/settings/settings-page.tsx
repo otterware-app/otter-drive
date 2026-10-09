@@ -6,6 +6,7 @@ import { AppearancePane } from './appearance-pane'
 import { MembersPane } from './members-pane'
 import { isSettingsPane } from './settings-nav'
 import { FolderPane } from './folder-pane'
+import { StoragePane } from './storage-pane'
 
 /** The main pane while Settings is open: the pane the route names. */
 export function SettingsPage({ pane }: { pane: string }) {
@@ -24,6 +25,8 @@ export function SettingsPage({ pane }: { pane: string }) {
       return <FolderPane />
     case 'members':
       return <MembersPane />
+    case 'storage':
+      return <StoragePane />
     case 'agents':
       return <AgentsPane />
     case 'appearance':

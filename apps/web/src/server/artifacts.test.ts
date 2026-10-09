@@ -185,7 +185,9 @@ async function fixture() {
       const key = `versions/artifact-1/version-${number}/${file.path}`
       const sha256 = await hash(file.text)
       objects.set(key, { ...file, sha256 })
-      db.prepare('INSERT INTO artifact_file VALUES (?, ?, ?, ?, ?, ?)').run(
+      db.prepare(
+        'INSERT INTO artifact_file (version_id, path, content_type, size, sha256, r2_key) VALUES (?, ?, ?, ?, ?, ?)',
+      ).run(
         `version-${number}`,
         file.path,
         file.contentType,
