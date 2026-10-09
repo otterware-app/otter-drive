@@ -85,7 +85,7 @@ function SchemeCard({
       aria-pressed={selected}
       onClick={onSelect}
       className={cn(
-        'flex flex-col items-center gap-2 rounded-xl border bg-card p-2 pb-2.5 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus-ring',
+        'flex flex-col items-center gap-2 rounded-xl border bg-card p-2 pb-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring',
         selected
           ? 'border-focus-ring text-foreground ring-1 ring-focus-ring'
           : 'border-border/60 text-muted-foreground hover:border-input hover:text-foreground',

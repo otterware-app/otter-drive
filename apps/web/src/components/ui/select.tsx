@@ -48,7 +48,7 @@ export function RowSelect({
         aria-label={ariaLabel}
         data-slot="select-trigger"
         className={cn(
-          'relative inline-flex items-center justify-between rounded-lg border text-left text-foreground outline-none select-none transition-[color,box-shadow,background-color] focus-visible:border-focus-ring/60 focus-visible:ring-[3px] focus-visible:ring-focus-ring/16 data-disabled:pointer-events-none data-disabled:opacity-64 data-placeholder:text-placeholder',
+          'relative inline-flex items-center justify-between rounded-lg border text-left text-foreground outline-none select-none focus-visible:border-focus-ring/60 focus-visible:ring-[3px] focus-visible:ring-focus-ring/16 data-disabled:pointer-events-none data-disabled:opacity-64 data-placeholder:text-placeholder',
           variant === 'pill'
             ? 'h-7 max-w-64 gap-1.5 border-border bg-transparent ps-2.5 pe-2 text-[13px] hover:bg-accent-surface data-popup-open:bg-accent-surface'
             : 'h-8 w-full min-w-36 gap-2 border-border/70 bg-surface-raised/60 px-[calc(--spacing(2.75)-1px)] text-sm hover:bg-surface-raised',

@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RowSelect } from '@/components/ui/select'
 import { toast } from '@/components/ui/toast'
-import { announceFoldersChanged, driveForFolder, useFolders } from '../folders'
+import { announceFoldersChanged } from '../folders'
+import { DriveScope, useSettingsDrive } from './drive-scope'
 import {
   SettingsPageContainer,
   SettingsRow,
@@ -18,8 +19,7 @@ interface Member {
   userId: string | null
 }
 export function MembersPane() {
-  const { folders, activeFolder } = useFolders(),
-    drive = driveForFolder(folders, activeFolder),
+  const { drive } = useSettingsDrive(),
     qc = useQueryClient()
   const [email, setEmail] = useState(''),
     [role, setRole] = useState<'viewer' | 'editor'>('editor'),
@@ -60,7 +60,8 @@ export function MembersPane() {
   }
   return (
     <SettingsPageContainer
-      title="Shared drive access"
+      scope={<DriveScope />}
+      title="Members"
       description={
         drive?.kind === 'shared'
           ? `Access to ${drive.name} includes all its folders and documents.`

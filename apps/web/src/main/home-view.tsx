@@ -116,16 +116,15 @@ export function useDrive(): DriveContextValue {
   return value
 }
 
-/** Settings' sections sit in the panel, between the frame's tone and the
-    canvas, with a faint full-height divider before the pane. */
+/** Settings' sections sit in the panel, heading and all, between the
+    frame's tone and the canvas, with a faint divider before the pane. */
 const PANE_SIDEBAR =
-  'min-h-0 overflow-hidden relative text-sidebar-foreground before:pointer-events-none before:absolute before:bottom-px before:left-px before:right-0 before:top-[calc(var(--workspace-topbar-height)+1px)] before:-z-10 before:rounded-l-[calc(var(--radius-xl)-1px)] before:bg-(--sidebar-panel-surface) after:pointer-events-none after:absolute after:bottom-0 after:right-0 after:top-0 after:w-px after:bg-border/70'
+  'min-h-0 overflow-hidden relative text-sidebar-foreground before:pointer-events-none before:absolute before:inset-y-0 before:left-px before:right-0 before:-z-10 before:rounded-l-[calc(var(--radius-xl)-1px)] before:bg-(--sidebar-panel-surface) after:pointer-events-none after:absolute after:bottom-0 after:right-0 after:top-0 after:w-px after:bg-border/70'
 /** A faint full-height divider on the list's right, through the title band. */
 const PANE_LIST =
   'min-h-0 overflow-hidden relative after:pointer-events-none after:absolute after:bottom-0 after:right-0 after:top-0 after:w-px after:bg-border/70'
 /** Clips a collapsible pane while its width animates open or closed. */
-const PANE_FRAME =
-  'flex min-h-0 shrink-0 overflow-hidden transition-[width] duration-200 ease-out'
+const PANE_FRAME = 'flex min-h-0 shrink-0 overflow-hidden'
 
 function matches(needle: string, ...values: string[]) {
   return !needle || values.join(' ').toLowerCase().includes(needle)
@@ -300,10 +299,6 @@ export function DriveHome({
 
   // Layout: Settings' sections (a drawer on phones), the list, and the
   // viewer at full width.
-  const [sidebarOpen, setSidebarOpen] = useStoredBoolean(
-    'otterdrive:sidebar-open',
-    true,
-  )
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [expanded, setExpanded] = useStoredBoolean(
     'otterdrive:viewer-expanded',
@@ -314,7 +309,8 @@ export function DriveHome({
   const settingsOpen = place.kind === 'settings'
   const documentOpen = place.kind === 'document'
   const viewerExpanded = documentOpen && expanded && !narrow
-  const showSidebar = settingsOpen && !narrow && sidebarOpen
+  // Settings' sections always show beside the pane; on a phone, a drawer.
+  const showSidebar = settingsOpen && !narrow
   const showList =
     !settingsOpen && !viewerExpanded && (!narrow || !documentOpen)
   const showMain = !narrow || documentOpen || settingsOpen
@@ -322,12 +318,10 @@ export function DriveHome({
     if (!narrow) setDrawerOpen(false)
   }, [narrow])
 
-  // ⌘B: Settings' sections there; with a document open, the list.
+  // ⌘B: with a document open, the list; on a phone in Settings, its drawer.
   const toggleSidebar = () => {
-    if (settingsOpen) {
-      if (narrow) setDrawerOpen((open) => !open)
-      else setSidebarOpen((open) => !open)
-    } else if (documentOpen && !narrow) setExpanded((current) => !current)
+    if (settingsOpen && narrow) setDrawerOpen((open) => !open)
+    else if (documentOpen && !narrow) setExpanded((current) => !current)
     else return false
   }
 
@@ -500,17 +494,17 @@ export function DriveHome({
           currentFolderId={driveForFolder(folders, folder)?.id ?? null}
           settingsOpen={settingsOpen}
           sharedOpen={sharedView || inSharedFolder}
+          reserveTop={settingsOpen && narrow}
           onSelectFolder={openFolder}
           onOpenShared={openShared}
         />
-        {/* A thin margin of frame on every free side (ChatGPT), so the panel
-            floats with all four corners rounded. */}
-        <div className="relative isolate flex min-w-0 flex-1 pr-1 pb-1">
-          {/* The inset content panel, behind the panes and under their
-              title bands. */}
+        {/* A browser tab has no window to frame (Otter Mail on the web): the
+            content panel fills the page beside the rail, title bands and
+            all, rounded only against the rail. */}
+        <div className="relative isolate flex min-w-0 flex-1">
           <div
             aria-hidden
-            className="pointer-events-none absolute top-(--workspace-topbar-height) right-1 bottom-1 left-0 -z-10 rounded-xl border border-(--panel-edge) bg-canvas"
+            className="pointer-events-none absolute inset-y-0 right-0 left-0 -z-10 rounded-l-xl border-l border-(--panel-edge) bg-canvas"
           />
           <div
             style={{ width: showSidebar ? sidebarPane.width : 0 }}
@@ -638,7 +632,7 @@ export function DriveHome({
               />
               <div
                 data-app-sidebar=""
-                className="absolute top-0 bottom-1 left-0 z-50 flex w-[min(18rem,85vw)] flex-col rounded-r-xl bg-sidebar-surface shadow-[0_24px_64px_-24px_rgb(0_0_0/65%)] animate-[dialog-fade-in_140ms_ease-out]"
+                className="absolute inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col rounded-r-xl bg-sidebar-surface shadow-[0_24px_64px_-24px_rgb(0_0_0/65%)] animate-[dialog-fade-in_140ms_ease-out]"
               >
                 {sidebarContent}
               </div>
@@ -648,9 +642,9 @@ export function DriveHome({
         </div>
       </div>
 
-      {settingsOpen ? (
+      {settingsOpen && narrow ? (
         <SidebarControl
-          sidebarOpen={narrow ? drawerOpen : showSidebar}
+          sidebarOpen={drawerOpen}
           onToggleSidebar={toggleSidebar}
         />
       ) : null}

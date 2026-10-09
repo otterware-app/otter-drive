@@ -267,7 +267,7 @@ function PaletteCard({
         title: 'Settings',
         keywords: 'preferences members invite api keys agents',
         run: () =>
-          void navigate({ to: '/settings/$pane', params: { pane: 'folder' } }),
+          void navigate({ to: '/settings/$pane', params: { pane: 'drive' } }),
       },
       {
         id: 'sign-out',

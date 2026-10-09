@@ -141,12 +141,15 @@ export function SettingsRow({
 /** A scrollable page: the pane's title (and a line of description) over
  *  its sections, in the settings column. */
 export function SettingsPageContainer({
+  scope,
   title,
   description,
   action,
   className,
   children,
 }: {
+  /** Above the title: what the page applies to (a drive's pages: which drive). */
+  scope?: ReactNode
   title: ReactNode
   description?: ReactNode
   /** Beside the title, right-aligned with the cards' edge. */
@@ -164,6 +167,7 @@ export function SettingsPageContainer({
       >
         <header className="flex items-end justify-between gap-4 px-[17px]">
           <div className="min-w-0">
+            {scope ? <div className="mb-3 -ms-1.5">{scope}</div> : null}
             <h1 className="text-[26px] leading-8 font-medium tracking-[-0.01em] text-foreground">
               {title}
             </h1>

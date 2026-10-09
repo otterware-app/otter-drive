@@ -13,12 +13,11 @@ export function ShellSkeleton() {
       className="surface-grain flex h-dvh bg-sidebar-surface"
     >
       <div className="w-(--workspace-rail-width) shrink-0" />
-      <div className="relative isolate flex min-w-0 flex-1 pr-1 pb-1">
+      <div className="relative isolate flex min-w-0 flex-1">
         <div
           aria-hidden
-          className="pointer-events-none absolute top-(--workspace-topbar-height) right-1 bottom-1 left-0 -z-10 rounded-xl border border-(--panel-edge) bg-canvas"
+          className="pointer-events-none absolute inset-y-0 right-0 left-0 -z-10 rounded-l-xl border-l border-(--panel-edge) bg-canvas"
         />
-        <div className="hidden w-[244px] shrink-0 md:block" />
         <div className="w-full shrink-0 pt-(--workspace-topbar-height) md:w-[360px]">
           <div className="pt-[9px]">
             <DocumentListSkeleton />

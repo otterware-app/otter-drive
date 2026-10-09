@@ -30,7 +30,7 @@ import {
 
 /** A filter chip (Google Drive's Type, Modified…): lit while it applies. */
 const CHIP =
-  'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border text-[13px] whitespace-nowrap outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus-ring [&_svg]:size-3.5 [&_svg]:shrink-0'
+  'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border text-[13px] whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-focus-ring [&_svg]:size-3.5 [&_svg]:shrink-0'
 const CHIP_IDLE =
   'border-border px-2.5 text-muted-foreground hover:bg-accent-surface hover:text-foreground data-popup-open:bg-accent-surface data-popup-open:text-foreground'
 const CHIP_ON = 'border-transparent bg-foreground/[0.09] ps-2.5 text-foreground'

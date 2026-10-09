@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
  * button stays put.
  */
 const buttonVariants = cva(
-  'relative inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border font-normal whitespace-nowrap outline-none transition-[box-shadow,background-color,color] focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-1 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-64 aria-disabled:pointer-events-none aria-disabled:opacity-64 [&_svg]:pointer-events-none [&_svg]:shrink-0',
+  'relative inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border font-normal whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-1 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-64 aria-disabled:pointer-events-none aria-disabled:opacity-64 [&_svg]:pointer-events-none [&_svg]:shrink-0',
   {
     defaultVariants: { size: 'default', variant: 'outline' },
     variants: {

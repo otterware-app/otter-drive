@@ -31,7 +31,7 @@ import { FolderMark, UserAvatar } from './folder-mark'
 
 /** A rail button: a square that lights up on hover, and stays lit where you are. */
 const RAIL_BUTTON =
-  'relative flex size-9 shrink-0 items-center justify-center rounded-lg text-sidebar-muted-foreground outline-none transition-colors hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring data-popup-open:bg-sidebar-row-hover'
+  'relative flex size-9 shrink-0 items-center justify-center rounded-lg text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring data-popup-open:bg-sidebar-row-hover'
 const RAIL_BUTTON_SELECTED = 'bg-sidebar-row-selected text-sidebar-foreground'
 
 export function signOut() {
@@ -57,6 +57,7 @@ export function FolderRail({
   currentFolderId,
   settingsOpen,
   sharedOpen = false,
+  reserveTop = false,
   onSelectFolder,
   onOpenShared,
 }: {
@@ -67,6 +68,8 @@ export function FolderRail({
   settingsOpen: boolean
   /** "Shared with me", or a folder in it, is showing. */
   sharedOpen?: boolean
+  /** Leave the title band free for the pinned sidebar toggle. */
+  reserveTop?: boolean
   onSelectFolder: (folder: Folder) => void
   onOpenShared?: () => void
 }) {
@@ -112,13 +115,16 @@ export function FolderRail({
       data-app-sidebar=""
       className="flex w-(--workspace-rail-width) shrink-0 flex-col items-center pb-(--sidebar-content-inset) text-sidebar-foreground"
     >
-      {/* Under the title band (the pinned sidebar toggle sits over it), and
-          past the panel's rounded corner: level with the sidebar's heading. */}
-      <div
-        aria-hidden
-        className="h-(--workspace-topbar-height) w-full shrink-0"
-      />
-      <div className="mt-(--radius-xl) flex min-h-0 flex-col items-center gap-1 overflow-y-auto">
+      {/* The first drive sits level with the title bands (Otter Mail on the
+          web); a pinned sidebar toggle, on a phone in Settings, takes the
+          band instead. */}
+      {reserveTop ? (
+        <div
+          aria-hidden
+          className="h-(--workspace-topbar-height) w-full shrink-0"
+        />
+      ) : null}
+      <div className="mt-[calc((var(--workspace-topbar-height)-2.25rem)/2)] flex min-h-0 flex-col items-center gap-1 overflow-y-auto">
         {personal.map(button)}
         {onOpenShared ? (
           <HintTooltip label="Shared with me" side="right">

@@ -187,7 +187,7 @@ function RecentCard({
       to="/$folderSlug/a/$slug"
       params={{ folderSlug, slug: artifact.slug }}
       search={(current) => ({ ...current, sheet: undefined })}
-      className="group flex flex-col gap-1.5 rounded-xl border border-border/60 bg-card p-1.5 pb-2.5 outline-none transition-colors hover:border-input focus-visible:ring-2 focus-visible:ring-focus-ring"
+      className="group flex flex-col gap-1.5 rounded-xl border border-border/60 bg-card p-1.5 pb-2.5 outline-none hover:border-input focus-visible:ring-2 focus-visible:ring-focus-ring"
     >
       <DocumentThumb
         artifact={artifact}
@@ -334,7 +334,7 @@ function SharedFolderCard({ item }: { item: SharedItem }) {
     <Link
       to="/home"
       search={{ folder: folder.id }}
-      className="flex items-center gap-3 rounded-xl border border-border/60 bg-card p-3 outline-none transition-colors hover:border-input focus-visible:ring-2 focus-visible:ring-focus-ring"
+      className="flex items-center gap-3 rounded-xl border border-border/60 bg-card p-3 outline-none hover:border-input focus-visible:ring-2 focus-visible:ring-focus-ring"
     >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-surface text-icon-muted">
         <FolderIcon className="size-4.5" strokeWidth={1.75} />

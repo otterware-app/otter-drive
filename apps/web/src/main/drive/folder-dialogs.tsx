@@ -3,16 +3,24 @@ import { api } from '#/lib/api'
 import { Dialog } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { RowSelect } from '@/components/ui/select'
 import { toast } from '@/components/ui/toast'
-import { announceFoldersChanged, folderLabel, type Folder } from '../folders'
+import {
+  announceFoldersChanged,
+  driveForFolder,
+  folderLabel,
+  folderPath,
+  useFolders,
+  type Folder,
+} from '../folders'
 
 /**
- * Renaming and deleting a folder, asked from its menus with
+ * Renaming, moving and deleting a folder, asked from its menus with
  * `requestFolderDialog()` and kept mounted by the home view.
  */
 
 type FolderDialogRequest = {
-  action: 'rename' | 'delete'
+  action: 'rename' | 'move' | 'delete'
   folder: Folder
   onDeleted?: (folder: Folder) => void
 }
@@ -30,11 +38,14 @@ export function FolderDialogsHost() {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [destination, setDestination] = useState<string | undefined>()
+  const { folders } = useFolders()
   useEffect(() => {
     const show = (event: Event) => {
       const detail = (event as CustomEvent<FolderDialogRequest>).detail
       setRequest(detail)
       setName(detail.folder.name)
+      setDestination(detail.folder.parentId ?? undefined)
       setError(null)
       setOpen(true)
     }
@@ -74,6 +85,59 @@ export function FolderDialogsHost() {
       setError(reason instanceof Error ? reason.message : String(reason))
       throw reason
     }
+  }
+
+  async function move() {
+    if (!folder || !destination) return
+    setError(null)
+    try {
+      await api(`/api/v1/folders/${encodeURIComponent(folder.id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ parentId: destination }),
+      })
+      announceFoldersChanged()
+      toast.success(`Moved “${folder.name}”`)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+      throw reason
+    }
+  }
+
+  if (request?.action === 'move' && folder) {
+    // Anywhere else in its drive, but not into itself or a folder inside it.
+    const drive = driveForFolder(folders, folder)
+    const options = folders
+      .filter(
+        (item) =>
+          driveForFolder(folders, item)?.id === drive?.id &&
+          !folderPath(folders, item).some((step) => step.id === folder.id),
+      )
+      .map((item) => ({
+        value: item.id,
+        label: folderPath(folders, item).map(folderLabel).join(' / '),
+      }))
+    return (
+      <Dialog
+        open={open}
+        onOpenChange={setOpen}
+        title={`Move “${folder.name}”`}
+        description="Its folders and documents move with it. Access follows where it lands."
+        confirmLabel="Move"
+        confirmDisabled={!destination || destination === folder.parentId}
+        onConfirm={move}
+        size="small"
+      >
+        <Field label="Into" error={error}>
+          <RowSelect
+            variant="field"
+            ariaLabel="Destination folder"
+            value={destination}
+            options={options}
+            onValueChange={setDestination}
+          />
+        </Field>
+      </Dialog>
+    )
   }
 
   if (request?.action === 'delete')
