@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { HardDriveIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { DriveSymbol } from '../drive-symbol'
 import { folderColor, folderInitials, type Folder } from '../folders'
 
 /**
  * A drive's mark: a shared drive's initials on its color (Otter Mail's
- * account picture), or a drive for My Drive, which has no name of its own.
+ * account picture), or Otter Drive's folder for My Drive, which has no name
+ * of its own.
  */
 export function FolderMark({
   folder,
@@ -23,7 +24,7 @@ export function FolderMark({
           className,
         )}
       >
-        <HardDriveIcon className="size-[62%]" strokeWidth={2} />
+        <DriveSymbol className="size-[58%]" />
       </span>
     )
   return (
