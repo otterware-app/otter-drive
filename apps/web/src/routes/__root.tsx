@@ -43,19 +43,23 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       },
     ],
     links: [
+      // Local runs wear the blueprint icon, so they're told apart from the
+      // live app's tabs.
       {
         rel: 'icon',
-        href: '/favicon.svg',
+        href: import.meta.env.DEV ? '/favicon-dev.ico' : '/favicon.ico',
+        // Not "any": Chrome would take the .ico over the adaptive SVG.
+        sizes: '32x32',
+      },
+      {
+        rel: 'icon',
+        href: import.meta.env.DEV ? '/favicon-dev.svg' : '/favicon.svg',
         type: 'image/svg+xml',
       },
       {
-        rel: 'icon',
-        href: '/favicon.ico',
-        sizes: 'any',
-      },
-      {
         rel: 'apple-touch-icon',
-        href: '/logo192.png',
+        href: '/apple-touch-icon.png',
+        sizes: '180x180',
       },
       {
         rel: 'manifest',

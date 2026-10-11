@@ -54,10 +54,12 @@ export function isAllowedHostPath(request: Request, env: Env): boolean {
 }
 
 const PUBLIC_ASSET_PATHS = new Set([
+  '/apple-touch-icon.png',
   '/favicon.ico',
   '/favicon.svg',
   '/logo192.png',
   '/logo512.png',
+  '/logo-maskable512.png',
   '/manifest.json',
   '/robots.txt',
 ])

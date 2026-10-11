@@ -4,7 +4,8 @@ import { useTheme } from 'next-themes'
 import { IconButton } from '@/components/ui/button'
 import { HintTooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { DriveMark, Wordmark } from '../top-bar'
+import { DriveAppIcon } from '../drive-symbol'
+import { Wordmark } from '../top-bar'
 import { DocField } from './doc-field'
 
 /**
@@ -35,7 +36,7 @@ export function AuthShell({
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center px-6 py-10">
             <div className="flex w-full max-w-[22rem] flex-col items-center motion-safe:animate-[onboarding-in_360ms_var(--ease-drawer)]">
-              <DriveMark className="mb-6 size-14 rounded-[23%] shadow-[0_12px_32px_-12px_rgb(0_0_0/0.5)]" />
+              <DriveAppIcon className="mb-6 size-14 rounded-[23%] shadow-[0_12px_32px_-12px_rgb(0_0_0/0.5)]" />
               <div className="mb-7 flex flex-col items-center gap-2 text-center text-balance">
                 <h1 className="text-[28px] leading-9 font-medium tracking-[-0.015em] text-foreground">
                   {title}

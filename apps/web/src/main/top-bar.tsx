@@ -119,23 +119,3 @@ export function Wordmark({ className }: { className?: string }) {
     </span>
   )
 }
-
-/** Otter Drive's box mark (favicon.svg), in the current text color. */
-export function DriveMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 64 64" aria-hidden className={cn('shrink-0', className)}>
-      <rect width="64" height="64" rx="15" className="fill-foreground" />
-      <g
-        fill="none"
-        className="stroke-canvas"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="3.5"
-      >
-        <path d="m48 21-16-9-16 9v22l16 9 16-9z" />
-        <path d="m16 21 16 9 16-9" />
-        <path d="M32 52V30" />
-      </g>
-    </svg>
-  )
-}
