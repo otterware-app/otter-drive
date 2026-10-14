@@ -688,7 +688,7 @@ function GeneralAccess({
                 >
                   <span className="block">Anyone with the link</span>
                   <span className="block text-xs text-muted-foreground">
-                    Anyone who signs in with the link can open it
+                    Anyone with the link can view it, no sign-in needed
                   </span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -700,7 +700,9 @@ function GeneralAccess({
           )}
           <div className="text-[13px] text-muted-foreground">
             {link
-              ? `Anyone with an Otter account who opens the link can ${link.role === 'editor' ? 'edit' : 'view'}`
+              ? link.role === 'editor'
+                ? 'Anyone with the link can view; people who sign in with it can edit'
+                : 'Anyone on the internet with the link can view'
               : `Only ${where} can open it`}
           </div>
         </div>

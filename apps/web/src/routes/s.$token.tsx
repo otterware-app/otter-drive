@@ -3,24 +3,39 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { LoaderIcon } from 'lucide-react'
 import { acceptLinkResponseSchema } from '@otterware/contracts'
+import { z } from 'zod'
 import { api } from '#/lib/api'
-import { AuthGate } from '#/main/auth/auth-gate'
+import { authClient } from '#/lib/auth-client'
+import { useHydrated } from '#/lib/session-cache'
 import { AuthShell } from '#/main/auth/auth-shell'
+import { LinkView } from '#/main/drive/link-view'
 
 /**
- * A link shared with "anyone with the link": after signing in, opening it
- * adds you to the folder or document it shares, then opens it.
+ * A link shared with "anyone with the link". Signed in, opening it adds you
+ * to the folder or document it shares, then opens it. Signed out, you view
+ * it right here, read-only, without an account.
  */
 export const Route = createFileRoute('/s/$token')({
+  validateSearch: z.object({
+    /** A folder inside a shared folder. */
+    folder: z.string().max(256).optional().catch(undefined),
+    /** A document opened from a shared folder. */
+    doc: z.string().max(256).optional().catch(undefined),
+  }),
   component: SharedLinkPage,
 })
 
 function SharedLinkPage() {
-  return (
-    <AuthGate fallback={<AuthShell title="Opening a shared link" />}>
-      <AcceptLink />
-    </AuthGate>
-  )
+  const { token } = Route.useParams()
+  const { folder, doc } = Route.useSearch()
+  const session = authClient.useSession()
+  // The client restores the session synchronously from its cache, so the
+  // hydration render must keep showing the server's fallback to match.
+  const hydrated = useHydrated()
+  if (!hydrated || session.isPending)
+    return <AuthShell title="Opening a shared link" />
+  if (!session.data) return <LinkView token={token} folder={folder} doc={doc} />
+  return <AcceptLink />
 }
 
 function AcceptLink() {

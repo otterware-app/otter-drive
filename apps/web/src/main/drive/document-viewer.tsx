@@ -352,7 +352,7 @@ export function DocumentViewer({
  * the file, so it's kept from the first render: a refetched bootstrap brings
  * a new URL, which would restart the video.
  */
-function VideoPlayer({ src, title }: { src: string; title: string }) {
+export function VideoPlayer({ src, title }: { src: string; title: string }) {
   const [source] = useState(src)
   return (
     <div className="flex size-full items-center justify-center bg-black">

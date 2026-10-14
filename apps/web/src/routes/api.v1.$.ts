@@ -40,6 +40,7 @@ import {
   sharedWithMe,
   suggestPeople,
 } from '#/server/sharing'
+import { openLink } from '#/server/public-links'
 import { errorResponse, HttpError, json } from '#/server/http'
 
 async function handler({ request }: { request: Request }): Promise<Response> {
@@ -80,6 +81,10 @@ async function route(request: Request): Promise<Response> {
       'invalid_origin',
       'Use the Drive app to make this request.',
     )
+  // Anyone with a link views what it shares, signed in or not.
+  if (segments[0] === 'links' && segments[1] && request.method === 'GET')
+    return openLink(request, env, segments[1], segments.slice(2))
+
   const auth = createAuth(env)
   const actor = await authenticate(request, env, auth)
 

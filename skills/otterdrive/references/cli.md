@@ -112,7 +112,7 @@ otterdrive --json artifacts share <artifact> alex@example.com --role editor --me
 otterdrive --json folders share <folder> sam@example.com --role viewer --no-notify
 otterdrive --json artifacts access <artifact>
 otterdrive --json artifacts unshare <artifact> alex@example.com
-otterdrive --json artifacts link <artifact> --role viewer   # anyone who signs in with the link
+otterdrive --json artifacts link <artifact> --role viewer   # anyone with the link views it
 otterdrive --json artifacts link <artifact> --off           # removes everyone who joined by link
 otterdrive --json shared                                    # shared with me
 ```

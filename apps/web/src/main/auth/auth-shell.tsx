@@ -121,7 +121,7 @@ export function AuthMessage({
   )
 }
 
-function ThemeToggle() {
+export function ThemeToggle() {
   const [mounted, setMounted] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
   useEffect(() => setMounted(true), [])
