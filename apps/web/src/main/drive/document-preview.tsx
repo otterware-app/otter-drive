@@ -35,6 +35,8 @@ interface DocumentPreviewProps {
   /** How API calls name it: its slug in the folder, or its id. */
   reference: string
   version: number
+  /** Opened by a link, without signing in: read-only, through the link. */
+  linkToken?: string | undefined
 }
 
 export function DocumentPreview(props: DocumentPreviewProps) {

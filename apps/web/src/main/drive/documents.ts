@@ -140,10 +140,12 @@ const KIND_BY_EXTENSION: Record<string, DocumentKind> = {
 
 /** What a document is, from its current entry file's extension. */
 export function documentKind(artifact: Artifact): DocumentKind {
-  const extension = artifact.currentVersion?.entryPath
-    .split('.')
-    .pop()
-    ?.toLowerCase()
+  return entryKind(artifact.currentVersion?.entryPath ?? '')
+}
+
+/** What a document is, from its entry file's extension. */
+export function entryKind(entryPath: string): DocumentKind {
+  const extension = entryPath.split('.').pop()?.toLowerCase()
   return KIND_BY_EXTENSION[extension ?? ''] ?? 'other'
 }
 

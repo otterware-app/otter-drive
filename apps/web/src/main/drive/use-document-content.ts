@@ -19,6 +19,8 @@ interface ContentInput {
   version: number
   entryPath: string
   kind: NativeDocumentKind
+  /** Opened by a link, without signing in: read through the link. */
+  linkToken?: string | undefined
 }
 
 async function loadDocumentContent(
@@ -30,7 +32,9 @@ async function loadDocumentContent(
     path: input.entryPath,
   })
   const response = await fetch(
-    `/api/v1/artifacts/${encodeURIComponent(input.reference)}/content?${query}`,
+    input.linkToken
+      ? `/api/v1/links/${encodeURIComponent(input.linkToken)}/documents/${encodeURIComponent(input.reference)}/content?${query}`
+      : `/api/v1/artifacts/${encodeURIComponent(input.reference)}/content?${query}`,
     {
       headers: {
         accept: '*/*',
@@ -79,7 +83,9 @@ export function useDocumentContent(input: ContentInput) {
   return useQuery({
     queryKey: [
       'document-content',
-      input.folderId ?? 'shared',
+      input.linkToken
+        ? `link:${input.linkToken}`
+        : (input.folderId ?? 'shared'),
       input.reference,
       input.version,
       input.entryPath,

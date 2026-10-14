@@ -870,12 +870,23 @@ export async function readContent(
 ): Promise<Response> {
   const artifact = await artifactRow(env, actor, reference)
   const version = await selectedVersion(request, env, artifact)
-  const requestedPath =
-    new URL(request.url).searchParams.get('path') ?? version.entry_path
+  return versionFile(
+    env,
+    version.id,
+    new URL(request.url).searchParams.get('path') ?? version.entry_path,
+  )
+}
+
+/** One of a version's files, served from the app for it to read. */
+export async function versionFile(
+  env: Env,
+  versionId: string,
+  path: string,
+): Promise<Response> {
   const file = await env.DB.prepare(
     'SELECT * FROM artifact_file WHERE version_id = ? AND path = ?',
   )
-    .bind(version.id, requestedPath)
+    .bind(versionId, path)
     .first<FileRow>()
   if (!file) throw new HttpError(404, 'file_not_found', 'File not found.')
   const object = await (
@@ -889,6 +900,10 @@ export async function readContent(
   if (object.etag) headers.set('etag', object.etag)
   headers.set('cache-control', 'private, max-age=31536000, immutable')
   headers.set('x-content-type-options', 'nosniff')
+  // The app reads these bytes; opened directly, they must never render on
+  // its origin (uploaded content runs only on the content origin).
+  headers.set('content-security-policy', "default-src 'none'; sandbox")
+  headers.set('content-disposition', 'attachment')
   return new Response(object.body, { headers })
 }
 
@@ -900,6 +915,15 @@ export async function downloadArtifact(
 ): Promise<Response> {
   const artifact = await artifactRow(env, actor, reference)
   const version = await selectedVersion(request, env, artifact)
+  return versionArchive(env, artifact.slug, version)
+}
+
+/** A version's files, zipped as they stream in. */
+export async function versionArchive(
+  env: Env,
+  slug: string,
+  version: { id: string; number: number },
+): Promise<Response> {
   const files = await env.DB.prepare(
     'SELECT * FROM artifact_file WHERE version_id = ? ORDER BY path',
   )
@@ -954,7 +978,7 @@ export async function downloadArtifact(
   return new Response(body, {
     headers: {
       'content-type': 'application/zip',
-      'content-disposition': `attachment; filename="${artifact.slug}-v${version.number}.zip"`,
+      'content-disposition': `attachment; filename="${slug}-v${version.number}.zip"`,
       'cache-control': 'private, no-store',
       'x-content-type-options': 'nosniff',
     },

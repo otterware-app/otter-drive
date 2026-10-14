@@ -127,7 +127,10 @@ async function loadArtifactTarget(
 }
 
 /** A folder and the folders above it, nearest first; the drive is last. */
-async function folderChain(env: Env, folderId: string): Promise<FolderRow[]> {
+export async function folderChain(
+  env: Env,
+  folderId: string,
+): Promise<FolderRow[]> {
   const result = await env.DB.prepare(
     `WITH RECURSIVE chain(depth, id) AS (
        SELECT 0, ?

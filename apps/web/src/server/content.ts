@@ -1,10 +1,14 @@
 import { HttpError } from './http'
-import { artifactAccess } from './access'
+import { artifactAccess, linkOpensDocument } from './access'
 import type { Env } from './types'
 import { storageFor } from './storage'
 
 interface GrantPayload {
-  principal: { userId: string; keyId?: string } | { service: true }
+  principal:
+    | { userId: string; keyId?: string }
+    | { service: true }
+    /** Anyone holding a link, signed in or not. */
+    | { linkId: string }
   artifactId: string
   versionId: string
   entryPath: string
@@ -129,6 +133,13 @@ async function verifyContentGrant(
 
 async function assertGrantAccess(env: Env, grant: GrantPayload) {
   if ('service' in grant.principal) return
+  if ('linkId' in grant.principal) {
+    if (
+      !(await linkOpensDocument(env, grant.principal.linkId, grant.artifactId))
+    )
+      throw new HttpError(403, 'access_revoked', 'This link no longer works.')
+    return
+  }
   const { userId, keyId } = grant.principal
   const row = await env.DB.prepare(
     `SELECT a.folder_id FROM artifact a JOIN user u ON u.id=? WHERE a.id=? AND coalesce(u.banned,0)=0`,

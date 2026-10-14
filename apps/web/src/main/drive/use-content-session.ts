@@ -1,5 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { artifactPreviewResponseSchema } from '@otterware/contracts'
+import {
+  artifactPreviewResponseSchema,
+  linkPreviewResponseSchema,
+} from '@otterware/contracts'
 import { api } from '#/lib/api'
 
 // Content cookies last four hours. Refresh before that, and on returning to a
@@ -11,6 +14,7 @@ export function useContentSession({
   reference,
   version,
   enabled,
+  linkToken,
 }: {
   /** The folder you reach the document through; undefined when by id. */
   folderId: string | undefined
@@ -18,16 +22,30 @@ export function useContentSession({
   reference: string
   version: number
   enabled: boolean
+  /** Opened by a link, without signing in: the grant comes from the link. */
+  linkToken?: string | undefined
 }) {
   return useQuery({
-    queryKey: ['content-session', folderId ?? 'shared', reference, version],
+    queryKey: [
+      'content-session',
+      linkToken ? `link:${linkToken}` : (folderId ?? 'shared'),
+      reference,
+      version,
+    ],
     queryFn: async ({ signal }) => {
-      const preview = artifactPreviewResponseSchema.parse(
-        await api<unknown>(
-          `/api/v1/artifacts/${encodeURIComponent(reference)}/preview?version=${version}`,
-          { folderId, signal },
-        ),
-      ).data
+      const preview = linkToken
+        ? linkPreviewResponseSchema.parse(
+            await api<unknown>(
+              `/api/v1/links/${encodeURIComponent(linkToken)}/documents/${encodeURIComponent(reference)}`,
+              { signal },
+            ),
+          ).data
+        : artifactPreviewResponseSchema.parse(
+            await api<unknown>(
+              `/api/v1/artifacts/${encodeURIComponent(reference)}/preview?version=${version}`,
+              { folderId, signal },
+            ),
+          ).data
       // Fetching follows the redirect and establishes the isolated origin's
       // HttpOnly cookie. Uploaded content is never executed in the app.
       await fetch(preview.url, {

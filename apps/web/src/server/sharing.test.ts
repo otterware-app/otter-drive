@@ -26,6 +26,7 @@ import {
   sharedWithMe,
   suggestPeople,
 } from './sharing'
+import { openLink } from './public-links'
 import type { AuthenticatedActor, Env } from './types'
 
 vi.mock('cloudflare:workers', () => ({ waitUntil: vi.fn() }))
@@ -508,6 +509,157 @@ describe('links', () => {
     expect(
       await data(showArtifact(env, actor('alex'), 'report')),
     ).toMatchObject({ role: 'viewer' })
+  })
+})
+
+describe('links without signing in', () => {
+  /** A current version with one file, kept in a fake bucket. */
+  function withVersion(id: string, text = `# ${id}`) {
+    db.sqlite
+      .prepare(
+        `INSERT INTO artifact_version (id, artifact_id, number, label, entry_path, created_at, created_by_user_id, created_by_name, file_count, byte_size, content_hash)
+         VALUES (?, ?, 1, '', 'README.md', '2026-01-01T00:00:00.000Z', 'owner', 'owner name', 1, ?, 'hash')`,
+      )
+      .run(`${id}-v1`, id, text.length)
+    db.sqlite
+      .prepare(
+        'INSERT INTO artifact_file (version_id, path, content_type, size, sha256, r2_key) VALUES (?, ?, ?, ?, ?, ?)',
+      )
+      .run(
+        `${id}-v1`,
+        'README.md',
+        'text/markdown',
+        text.length,
+        'sha',
+        `key/${id}`,
+      )
+    db.sqlite
+      .prepare(
+        'UPDATE artifact SET current_version_id = ?, version_count = 1 WHERE id = ?',
+      )
+      .run(`${id}-v1`, id)
+    objects.set(`key/${id}`, text)
+    return id
+  }
+  const objects = new Map<string, string>()
+  const open = (token: string, rest: string[] = [], query = '') =>
+    openLink(
+      new Request(`http://drive.test/api/v1/links/${token}${query}`),
+      env,
+      token,
+      rest,
+    )
+  async function linkTo(target: 'folder' | 'artifact', id: string) {
+    const share = target === 'folder' ? folderSharing : artifactSharing
+    const enabled = await data(
+      share(body({ role: 'editor' }, 'PUT'), env, owner, id, ['link']),
+    )
+    return enabled.link!.url.split('/s/')[1]!
+  }
+
+  beforeEach(() => {
+    objects.clear()
+    env.ARTIFACTS = {
+      get: vi.fn(async (key: string) => {
+        const text = objects.get(key)
+        return text === undefined
+          ? null
+          : { body: new Response(text).body, size: text.length }
+      }),
+    } as unknown as R2Bucket
+  })
+
+  it('shows a shared document, its content and a content session to anyone', async () => {
+    withVersion(publish('report', 'home_owner', 'Quarterly report'))
+    publish('secret', 'home_owner')
+    const token = await linkTo('artifact', 'report')
+
+    expect(await data(open(token))).toMatchObject({
+      type: 'artifact',
+      name: 'Quarterly report',
+      folder: null,
+      document: {
+        id: 'report',
+        version: { number: 1, entryPath: 'README.md' },
+      },
+    })
+    const content = await open(token, ['documents', 'report', 'content'])
+    expect(await content.text()).toBe('# report')
+    expect(content.headers.get('cache-control')).toBe('private, no-store')
+    // Uploaded content never renders on the app's origin.
+    expect(content.headers.get('content-disposition')).toBe('attachment')
+    expect(content.headers.get('content-security-policy')).toContain('sandbox')
+
+    const preview = await data<{ url: string; contentType: string }>(
+      open(token, ['documents', 'report']),
+    )
+    expect(preview.contentType).toBe('text/markdown')
+    const grant = preview.url.split('/raw/session/')[1]!
+    const request = new Request(preview.url)
+    expect((await startContentSession(request, env, grant)).status).toBe(302)
+
+    // Nothing else in the folder, and nothing once the link is off.
+    await expect(open(token, ['documents', 'secret'])).rejects.toThrow(
+      'no longer shared',
+    )
+    await artifactSharing(del(), env, owner, 'report', ['link'])
+    await expect(open(token)).rejects.toThrow('no longer works')
+    await expect(startContentSession(request, env, grant)).rejects.toThrow(
+      'no longer works',
+    )
+  })
+
+  it('browses a shared folder and the folders inside it, never above', async () => {
+    const projects = await folder('Projects', 'home_owner')
+    const design = await folder('Design', projects.id)
+    withVersion(publish('plan', projects.id))
+    withVersion(publish('mock', design.id))
+    publish('draft-only', projects.id)
+    db.sqlite
+      .prepare("UPDATE artifact SET state = 'draft' WHERE id = 'draft-only'")
+      .run()
+    withVersion(publish('outside', 'home_owner'))
+    const token = await linkTo('folder', projects.id)
+
+    const top = await data<{
+      name: string
+      folder: { path: unknown[]; folders: unknown[]; documents: unknown[] }
+    }>(open(token))
+    expect(top.name).toBe('Projects')
+    expect(top.folder.path).toEqual([{ id: projects.id, name: 'Projects' }])
+    expect(top.folder.folders).toEqual([{ id: design.id, name: 'Design' }])
+    expect(top.folder.documents).toMatchObject([{ id: 'plan' }])
+
+    const inside = await data<{
+      folder: { path: unknown[]; documents: unknown[] }
+    }>(open(token, [], `?folder=${design.id}`))
+    expect(inside.folder.path).toEqual([
+      { id: projects.id, name: 'Projects' },
+      { id: design.id, name: 'Design' },
+    ])
+    expect(inside.folder.documents).toMatchObject([{ id: 'mock' }])
+    expect(
+      await (await open(token, ['documents', 'mock', 'content'])).text(),
+    ).toBe('# mock')
+
+    await expect(open(token, [], '?folder=home_owner')).rejects.toThrow(
+      'isn’t shared',
+    )
+    await expect(open(token, ['documents', 'outside'])).rejects.toThrow(
+      'no longer shared',
+    )
+    await expect(open(token, ['documents', 'draft-only'])).rejects.toThrow(
+      'no longer shared',
+    )
+    // Archived documents leave the link.
+    await archiveArtifact(env, await inFolder('owner', projects.id), 'plan')
+    await expect(open(token, ['documents', 'plan'])).rejects.toThrow(
+      'no longer shared',
+    )
+  })
+
+  it('names no link that does not exist', async () => {
+    await expect(open('nope')).rejects.toThrow('no longer works')
   })
 })
 

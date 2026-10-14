@@ -193,7 +193,7 @@ function registerOn(parent: Command, kind: Kind) {
       '--off',
       'Turn the link off; people who joined through it lose access',
     )
-    .description('Let anyone who signs in with the link open it')
+    .description('Let anyone with the link view it, no sign-in needed')
     .action(
       async (
         reference: string,

@@ -64,3 +64,28 @@ export async function artifactAccess(
     await artifactShareRole(env, principal.userId, artifact.id),
   )
 }
+
+/**
+ * Whether a link opens a document to anyone holding it: the document's own
+ * link, or one on its folder or a folder above. Only published documents
+ * outside the archive.
+ */
+export async function linkOpensDocument(
+  env: Env,
+  linkId: string,
+  artifactId: string,
+): Promise<boolean> {
+  const row = await env.DB.prepare(
+    `WITH RECURSIVE chain(id) AS (
+       SELECT folder_id FROM artifact WHERE id = ?
+       UNION ALL SELECT f.parent_id FROM chain c JOIN folder f ON f.id = c.id
+        WHERE f.parent_id IS NOT NULL
+     )
+     SELECT 1 AS opens FROM share_link l JOIN artifact a ON a.id = ?
+      WHERE l.id = ? AND a.state = 'published' AND a.archived_at IS NULL
+        AND (l.artifact_id = a.id OR l.folder_id IN (SELECT id FROM chain))`,
+  )
+    .bind(artifactId, artifactId, linkId)
+    .first<{ opens: number }>()
+  return Boolean(row)
+}
