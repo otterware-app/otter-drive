@@ -5,8 +5,13 @@ import { listFolders } from '#/server/folders'
 import { errorResponse } from '#/server/http'
 import { createAuth } from '#/server/auth'
 import { browserAuth } from '#/server/browser-auth'
+import { preflight, withCors } from '#/server/cors'
 
 async function handler({ request }: { request: Request }) {
+  return withCors(request, await answer(request))
+}
+
+async function answer(request: Request): Promise<Response> {
   const auth = createAuth(env)
   const browser = await browserAuth(request, env, auth)
   if (browser) return browser
@@ -36,6 +41,7 @@ export const Route = createFileRoute('/api/auth/$')({
       PUT: handler,
       PATCH: handler,
       DELETE: handler,
+      OPTIONS: ({ request }) => preflight(request),
     },
   },
 })

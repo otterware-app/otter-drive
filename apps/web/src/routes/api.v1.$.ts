@@ -32,6 +32,7 @@ import {
   uploadFile,
 } from '#/server/artifacts'
 import { createAuth } from '#/server/auth'
+import { preflight, withCors } from '#/server/cors'
 import { driveStorage } from '#/server/storage-backends'
 import {
   acceptLink,
@@ -47,9 +48,9 @@ async function handler({ request }: { request: Request }): Promise<Response> {
   // Await here: the route functions are async, and a rejected promise that is
   // merely returned would skip this catch and reach the client unformatted.
   try {
-    return await route(request)
+    return withCors(request, await route(request))
   } catch (error) {
-    return errorResponse(error)
+    return withCors(request, errorResponse(error))
   }
 }
 
@@ -208,6 +209,7 @@ export const Route = createFileRoute('/api/v1/$')({
       PUT: handler,
       PATCH: handler,
       DELETE: handler,
+      OPTIONS: ({ request }) => preflight(request),
     },
   },
 })
