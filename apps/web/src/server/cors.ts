@@ -1,10 +1,11 @@
 /**
- * Cross-origin access for Otter Mail's web app, which calls the API from
- * mail.otterware.app with a Bearer token. Credentials are never allowed: a
+ * Cross-origin access for Otter's web app, which calls the API from
+ * otter.otterware.app (mail.otterware.app before the rename) with a Bearer token. Credentials are never allowed: a
  * cross-origin request carries no Otter Drive cookies, so Better Auth skips
  * its origin check and only the token authorizes it.
  */
 const ALLOWED_ORIGINS = new Set([
+  'https://otter.otterware.app',
   'https://mail.otterware.app',
   // `pnpm dev` and `pnpm dev:fake` in Otter Mail.
   'http://localhost:5833',
