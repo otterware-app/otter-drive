@@ -7,16 +7,18 @@ const request = (origin?: string, method = 'GET') =>
     headers: origin ? { origin } : {},
   })
 
-describe('cross-origin access for Otter Mail', () => {
-  it('lets Otter Mail read responses, without credentials', () => {
-    const response = withCors(
-      request('https://mail.otterware.app'),
-      Response.json({ data: [] }),
-    )
-    expect(response.headers.get('access-control-allow-origin')).toBe(
+describe('cross-origin access for Otter', () => {
+  it('lets Otter read responses, at its new and old addresses, without credentials', () => {
+    for (const origin of [
+      'https://otter.otterware.app',
       'https://mail.otterware.app',
-    )
-    expect(response.headers.get('access-control-allow-credentials')).toBeNull()
+    ]) {
+      const response = withCors(request(origin), Response.json({ data: [] }))
+      expect(response.headers.get('access-control-allow-origin')).toBe(origin)
+      expect(
+        response.headers.get('access-control-allow-credentials'),
+      ).toBeNull()
+    }
   })
 
   it('leaves other origins and same-origin requests alone', () => {
