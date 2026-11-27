@@ -335,31 +335,38 @@ export function registerArtifactCommands(program: Command): void {
     .argument('<artifact>', 'Artifact ID or slug')
     .argument('<folder>', 'Destination folder ID, slug, or unique name')
     .description('Move an artifact to another folder')
-    .action(async (id: string, folderRef: string, command: Command) => {
-      const { profile } = await getProfile(globals(command).profile)
-      if (!profile.accessToken || profile.apiKey) {
-        throw new Error(
-          'Moving artifacts requires a user login, not an API key.',
+    .action(
+      async (
+        id: string,
+        folderRef: string,
+        _options: unknown,
+        command: Command,
+      ) => {
+        const { profile } = await getProfile(globals(command).profile)
+        if (!profile.accessToken || profile.apiKey) {
+          throw new Error(
+            'Moving artifacts requires a user login, not an API key.',
+          )
+        }
+        const client = new ApiClient(profile)
+        const { data: folders } = await client.get<{ data: Folder[] }>(
+          '/api/v1/folders',
         )
-      }
-      const client = new ApiClient(profile)
-      const { data: folders } = await client.get<{ data: Folder[] }>(
-        '/api/v1/folders',
-      )
-      const destination = resolveFolderReference(folders, folderRef)
-      const result = artifactResponseSchema.parse(
-        await client.post(`/api/v1/artifacts/${id}/move`, {
-          folderId: destination.id,
-        }),
-      )
-      if (globals(command).json) printJson(result)
-      else {
-        success(
-          `Moved ${pc.bold(result.data.title)} to ${pc.bold(destination.name)}.`,
+        const destination = resolveFolderReference(folders, folderRef)
+        const result = artifactResponseSchema.parse(
+          await client.post(`/api/v1/artifacts/${id}/move`, {
+            folderId: destination.id,
+          }),
         )
-        process.stdout.write(`${result.data.url}\n`)
-      }
-    })
+        if (globals(command).json) printJson(result)
+        else {
+          success(
+            `Moved ${pc.bold(result.data.title)} to ${pc.bold(destination.name)}.`,
+          )
+          process.stdout.write(`${result.data.url}\n`)
+        }
+      },
+    )
 
   artifacts
     .command('versions')
