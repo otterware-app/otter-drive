@@ -1,8 +1,12 @@
 name: Publish CLI to npm
 
-# Releases are manual: bump apps/cli/package.json, merge, then run this
-# workflow from the Actions tab (or `gh workflow run publish-cli.yml`).
+# Bump apps/cli/package.json and merge: a version not yet on npm is published.
+# Run it by hand (`gh workflow run publish-cli.yml`) to retry a failed publish.
 on:
+  push:
+    branches: [main]
+    paths:
+      - apps/cli/package.json
   workflow_dispatch:
 
 permissions:
